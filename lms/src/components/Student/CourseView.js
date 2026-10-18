@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
 
-export default function CourseView({ course, user, onBack, initialTab = 'announcements' }) {
+/**
+ * focusTaskId - when set (e.g. the student clicked a task under "Upcoming Tasks"), the Assignments tab
+ *               scrolls to that assignment/quiz and briefly highlights it.
+ * readOnly    - used for completed courses: content stays viewable but submitting / taking quizzes is disabled.
+ */
+export default function CourseView({ course, user, onBack, initialTab = 'announcements', focusTaskId, readOnly = false }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [courseContent, setCourseContent] = useState(null);
   const [courseAssignments, setCourseAssignments] = useState([]);
@@ -20,6 +25,9 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
   
   const activeQuizRef = useRef(null);
 
+  const [highlightId, setHighlightId] = useState(null);
+  const focusedRef = useRef(null);
+
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
 
   const fetchCourseData = () => {
@@ -37,6 +45,17 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
   useEffect(() => {
     fetchCourseData();
   }, [course.code]);
+
+  // Jump to the task the student asked to be redirected to (runs once per focusTaskId, after the content has loaded)
+  useEffect(() => {
+    if (loading || !focusTaskId || activeTab !== 'assignments' || focusedRef.current === focusTaskId) return;
+    const el = document.getElementById(`task-${focusTaskId}`);
+    if (!el) return;
+    focusedRef.current = focusTaskId;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightId(focusTaskId);
+    setTimeout(() => setHighlightId(null), 3000);
+  }, [loading, focusTaskId, activeTab, courseAssignments]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -296,6 +315,11 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
       </div>
       
       <div style={{ flex: 1, padding: '20px' }}>
+        {readOnly && (
+          <div style={{ background: '#f6ffed', border: '1px solid #b7eb8f', padding: '10px 15px', borderRadius: '6px', marginBottom: '15px', color: '#237804', fontWeight: 'bold' }}>
+            This course is completed. You can still review its content, but new submissions are disabled.
+          </div>
+        )}
         {activeTab === 'announcements' && (
           <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #d9d9d9' }}>
             <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Announcements</h3>
@@ -383,7 +407,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                 const isQuiz = item.type === 'Quiz';
 
                 return (
-                  <div key={item._id} style={{ border: '1px solid #e8e8e8', padding: '20px', marginBottom: '20px', borderRadius: '8px', background: '#fafafa' }}>
+                  <div key={item._id} id={`task-${item._id}`} style={{ border: highlightId === item._id ? '2px solid #faad14' : '1px solid #e8e8e8', boxShadow: highlightId === item._id ? '0 0 0 4px rgba(250,173,20,0.25)' : 'none', padding: '20px', marginBottom: '20px', borderRadius: '8px', background: highlightId === item._id ? '#fffbe6' : '#fafafa', transition: 'all 0.4s' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', paddingBottom: '10px', marginBottom: '15px' }}>
                         <h4 style={{ margin: 0, color: isQuiz ? '#722ed1' : '#000', fontSize: '18px' }}>
                           {item.title} <span style={{ color: 'gray', fontSize: '14px', fontWeight: 'normal' }}> (Max Score: {item.maxGrade})</span>
@@ -433,7 +457,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                         </div>
                       ) : <p style={{ color: isPastDeadline ? 'red' : 'gray', margin: '0 0 10px 0', fontWeight: 'bold' }}>{isPastDeadline ? `Missing (Overdue)` : 'Not Submitted Yet'}</p>}
                       
-                      {!isStrictlyClosed && !mySubmission && (
+                      {!readOnly && !isStrictlyClosed && !mySubmission && (
                         <button 
                           onClick={() => isQuiz ? startQuizFullscreen(item) : openSubmitModal(item._id)} 
                           style={{ marginTop: '15px', padding: '10px 20px', cursor: 'pointer', background: isQuiz ? '#722ed1' : '#1890ff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '15px' }}
@@ -442,7 +466,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                         </button>
                       )}
 
-                      {!isStrictlyClosed && mySubmission && !isQuiz && (
+                      {!readOnly && !isStrictlyClosed && mySubmission && !isQuiz && (
                          <button onClick={() => openSubmitModal(item._id)} style={{ marginTop: '15px', padding: '8px 16px', cursor: 'pointer', background: '#fff', border: '1px solid #d9d9d9', borderRadius: '4px', fontWeight: 'bold' }}>Update Submission</button>
                       )}
 

@@ -3,7 +3,7 @@ import { Layout, Menu, Button, Card, Typography, Row, Col, Table, Tag, Statistic
 import {
   DashboardOutlined, TeamOutlined, BookOutlined, SafetyOutlined, LogoutOutlined, DeleteOutlined, EditOutlined,
   PlusOutlined, UserAddOutlined, SettingOutlined, NotificationOutlined, FileTextOutlined, UserOutlined,
-  KeyOutlined, StopOutlined, CheckCircleOutlined, MoreOutlined, ReadOutlined
+  KeyOutlined, StopOutlined, CheckCircleOutlined, MoreOutlined, ReadOutlined, ApartmentOutlined
 } from '@ant-design/icons';
 import api from '../../api';
 import { showError, fullName, getUserCoursesCount } from './adminUtils';
@@ -14,6 +14,7 @@ import CourseFormModal from './CourseFormModal';
 import CourseDetailsModal from './CourseDetailsModal';
 import AssignmentsPanel from './AssignmentsPanel';
 import ForumsPanel from './ForumsPanel';
+import DepartmentsPanel from './DepartmentsPanel';
 import BroadcastModal from './BroadcastModal';
 import AdminProfileModal from './AdminProfileModal';
 
@@ -30,6 +31,7 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
   const [stats, setStats] = useState({});
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [departments, setDepartments] = useState([]);
 
   // Users tab filters
   const [search, setSearch] = useState('');
@@ -62,16 +64,19 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
     setLoading(false);
   }, []);
 
-  // Users and courses are needed together in several modals, so load both up front and keep them fresh
-  const refreshAll = useCallback(() => { fetchStats(); fetchUsers(); fetchCourses(); }, [fetchStats, fetchUsers, fetchCourses]);
+  const fetchDepartments = useCallback(async () => {
+    try { const res = await api.get('/admin/departments'); if (res.data.success) setDepartments(res.data.departments); }
+    catch (err) { showError(err, 'Failed to load departments.'); }
+  }, []);
+
+  // Users, courses and departments are needed together in several modals, so load them up front and keep them fresh
+  const refreshAll = useCallback(() => { fetchStats(); fetchUsers(); fetchCourses(); fetchDepartments(); }, [fetchStats, fetchUsers, fetchCourses, fetchDepartments]);
   useEffect(() => { refreshAll(); }, [refreshAll]);
   useEffect(() => { if (activeTab === 'analytics') fetchStats(); }, [activeTab, fetchStats]);
 
   const teachers = useMemo(() => users.filter(u => u.accountType === 'Teacher'), [users]);
-  const programs = useMemo(
-    () => [...new Set([...courses.map(c => c.targetProgram), ...users.filter(u => u.accountType === 'Student').map(u => u.department)].filter(Boolean))],
-    [courses, users]
-  );
+  // Department names the admin has created (legacy free-text values are auto-registered by the server)
+  const programs = useMemo(() => departments.map(d => d.name), [departments]);
 
   const filteredUsers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -170,6 +175,7 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
           { key: 'analytics', icon: <DashboardOutlined />, label: 'System Overview' },
           { key: 'users', icon: <TeamOutlined />, label: 'User Database' },
           { key: 'courses', icon: <BookOutlined />, label: 'Course Management' },
+          { key: 'departments', icon: <ApartmentOutlined />, label: 'Departments' },
           { key: 'assignments', icon: <FileTextOutlined />, label: 'Assignments & Grades' },
           { key: 'moderation', icon: <SafetyOutlined />, label: 'Global Moderation' }
         ]} />
@@ -206,6 +212,7 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
               <Space wrap>
                 <Button type="primary" icon={<UserAddOutlined />} onClick={() => setUserForm({ open: true, mode: 'create', user: null })}>Add User</Button>
                 <Button icon={<PlusOutlined />} onClick={() => setCourseForm({ open: true, course: null })}>Create Course</Button>
+                <Button icon={<ApartmentOutlined />} onClick={() => setActiveTab('departments')}>Manage Departments</Button>
                 <Button icon={<NotificationOutlined />} onClick={() => setBroadcastOpen(true)}>Send Announcement</Button>
                 {stats.suspended > 0 && <Tag color="red">{stats.suspended} suspended account(s)</Tag>}
               </Space>
@@ -227,6 +234,8 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
               <Table dataSource={courses} columns={courseColumns} rowKey="_id" loading={loading} locale={{ emptyText: 'No courses in database.' }} />
             </Card>
           )}
+
+          {activeTab === 'departments' && <DepartmentsPanel departments={departments} loading={loading} onChanged={refreshAll} />}
 
           {activeTab === 'assignments' && (
             <Card title="Assignments, Quizzes & Submissions"><AssignmentsPanel onChanged={fetchStats} /></Card>

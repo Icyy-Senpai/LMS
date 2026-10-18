@@ -7,6 +7,9 @@ const Forum = require('../models/Forum');
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 const Notification = require('../models/Notification');
+const Department = require('../models/Department');
+const { getNextSchoolId } = require('../utils/schoolId');
+const { markCourseComplete } = require('../utils/courseCompletion');
 
 const fail = (res, err, fallback, code = 500) => {
   if (err && err.code === 11000) {
@@ -103,14 +106,35 @@ const createUser = async (req, res) => {
 
     const Model = modelFor(accountType);
     if (!Model) return res.status(400).json({ success: false, message: 'Invalid account type.' });
-    if (!req.body.schoolId) return res.status(400).json({ success: false, message: 'School ID is required.' });
 
     const allowed = accountType === 'Student' ? [...COMMON_FIELDS, ...STUDENT_ONLY] : COMMON_FIELDS;
-    const data = withDefaults({ ...pick(req.body, allowed), schoolId: req.body.schoolId });
-    const created = await new Model({ ...data, password, accountType, status: 'Active' }).save();
+    const data = withDefaults(pick(req.body, allowed));
+
+    // The School ID is always assigned by the server (next number after the highest existing ID);
+    // any schoolId sent by the client is ignored. Retry if another admin grabbed the same number first.
+    let created;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        const schoolId = await getNextSchoolId(accountType);
+        created = await new Model({ ...data, schoolId, password, accountType, status: 'Active' }).save();
+        break;
+      } catch (err) {
+        const clash = err && err.code === 11000 && err.keyPattern && err.keyPattern.schoolId;
+        if (!clash || attempt === 4) throw err;
+      }
+    }
     const out = created.toObject(); delete out.password;
-    res.json({ success: true, message: `${accountType} account created.`, user: out });
+    res.json({ success: true, message: `${accountType} account created. School ID: ${created.schoolId}`, user: out });
   } catch (err) { fail(res, err, 'Failed to create user.'); }
+};
+
+// Lets the "Add User" form show the ID that will be assigned before the admin submits.
+const previewNextSchoolId = async (req, res) => {
+  try {
+    const { accountType } = req.query;
+    if (!['Student', 'Teacher'].includes(accountType)) return res.status(400).json({ success: false, message: 'accountType must be Student or Teacher.' });
+    res.json({ success: true, schoolId: await getNextSchoolId(accountType) });
+  } catch (err) { fail(res, err, 'Failed to generate the next School ID.'); }
 };
 
 const updateUser = async (req, res) => {
@@ -271,7 +295,9 @@ const getCourseRoster = async (req, res) => {
     const { code } = req.params;
     const students = await Student.find({ 'enrolledCourseSubjects.code': code }, 'schoolId firstName lastName department yearLevel block status').lean();
     const teachers = await Teacher.find({ 'courseSubjectHeld.code': code }, 'schoolId firstName lastName department status').lean();
-    res.json({ success: true, students, teachers });
+    const completedRaw = await Student.find({ 'completedCourses.code': code }, 'schoolId firstName lastName department yearLevel block completedCourses').lean();
+    const completedStudents = completedRaw.map(({ completedCourses, ...s }) => ({ ...s, completion: completedCourses.find(c => c.code === code) }));
+    res.json({ success: true, students, teachers, completedStudents });
   } catch (err) { fail(res, err, 'Failed to load roster.'); }
 };
 
@@ -287,6 +313,9 @@ const assignUserCourse = async (req, res) => {
       if (!student) return res.status(404).json({ success: false, message: 'Student not found.' });
       if (student.enrolledCourseSubjects.some(c => c.code === courseCode)) {
         return res.status(400).json({ success: false, message: 'Student is already enrolled in this course.' });
+      }
+      if ((student.completedCourses || []).some(c => c.code === courseCode)) {
+        return res.status(400).json({ success: false, message: 'Student has already completed this course.' });
       }
       student.enrolledCourseSubjects.push({ code: courseCode });
       await student.save();
@@ -499,6 +528,116 @@ const deleteForumReply = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
+/*  COURSE COMPLETION  (admin side; teachers use courseController)     */
+/* ------------------------------------------------------------------ */
+const completeStudentCourse = async (req, res) => {
+  const { schoolId, courseCode } = req.body;
+  try {
+    if (!schoolId || !courseCode) return res.status(400).json({ success: false, message: 'schoolId and courseCode are required.' });
+    const student = await markCourseComplete({
+      studentSchoolId: schoolId, courseCode,
+      byName: `${req.admin.firstName || ''} ${req.admin.lastName || ''}`.trim() || req.admin.username,
+      byRole: 'Admin'
+    });
+    res.json({ success: true, message: `${courseCode} marked as completed.`, student });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ success: false, message: err.message });
+    fail(res, err, 'Failed to mark course as completed.');
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  DEPARTMENTS                                                        */
+/* ------------------------------------------------------------------ */
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Departments used to exist only as free-text strings on users and courses. Register any such value
+// that has no Department document yet, so existing data shows up (and is editable) right away.
+const syncLegacyDepartments = async () => {
+  const [sDeps, tDeps, cDeps] = await Promise.all([
+    Student.distinct('department'), Teacher.distinct('department'), Course.distinct('targetProgram')
+  ]);
+  const wanted = [...new Set([...sDeps, ...tDeps, ...cDeps].map(v => (v || '').trim()).filter(Boolean))];
+  if (!wanted.length) return;
+  const existing = new Set((await Department.find({}, 'name').lean()).map(d => d.name.toLowerCase()));
+  const missing = wanted.filter(n => !existing.has(n.toLowerCase()));
+  if (missing.length) await Department.insertMany(missing.map(name => ({ name })), { ordered: false }).catch(() => {});
+};
+
+const getDepartments = async (req, res) => {
+  try {
+    await syncLegacyDepartments();
+    const departments = await Department.find({}).sort({ name: 1 }).lean();
+    for (const d of departments) {
+      [d.studentCount, d.teacherCount, d.courseCount] = await Promise.all([
+        Student.countDocuments({ department: d.name }),
+        Teacher.countDocuments({ department: d.name }),
+        Course.countDocuments({ targetProgram: d.name })
+      ]);
+    }
+    res.json({ success: true, departments });
+  } catch (err) { fail(res, err, 'Failed to load departments.'); }
+};
+
+const nameTaken = (name, exceptId) => Department.findOne({
+  name: new RegExp(`^${escapeRegex(name)}$`, 'i'),
+  ...(exceptId ? { _id: { $ne: exceptId } } : {})
+});
+
+const createDepartment = async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ success: false, message: 'Department name is required.' });
+    if (await nameTaken(name)) return res.status(409).json({ success: false, message: 'A department with that name already exists.' });
+    const department = await new Department({ name, code: req.body.code, description: req.body.description }).save();
+    res.json({ success: true, message: 'Department created.', department });
+  } catch (err) { fail(res, err, 'Failed to create department.'); }
+};
+
+const updateDepartment = async (req, res) => {
+  try {
+    const dep = await Department.findById(req.params.id);
+    if (!dep) return res.status(404).json({ success: false, message: 'Department not found.' });
+    const oldName = dep.name;
+    const name = req.body.name !== undefined ? (req.body.name || '').trim() : oldName;
+    if (!name) return res.status(400).json({ success: false, message: 'Department name is required.' });
+    if (name !== oldName && await nameTaken(name, dep._id)) return res.status(409).json({ success: false, message: 'A department with that name already exists.' });
+
+    dep.name = name;
+    if (req.body.code !== undefined) dep.code = req.body.code;
+    if (req.body.description !== undefined) dep.description = req.body.description;
+    await dep.save();
+
+    // Users and courses reference the department by name, so keep them in step with a rename.
+    if (name !== oldName) {
+      await Promise.all([
+        Student.updateMany({ department: oldName }, { department: name }),
+        Teacher.updateMany({ department: oldName }, { department: name }),
+        Course.updateMany({ targetProgram: oldName }, { targetProgram: name })
+      ]);
+    }
+    res.json({ success: true, message: 'Department updated.', department: dep });
+  } catch (err) { fail(res, err, 'Failed to update department.'); }
+};
+
+const deleteDepartment = async (req, res) => {
+  try {
+    const dep = await Department.findById(req.params.id);
+    if (!dep) return res.status(404).json({ success: false, message: 'Department not found.' });
+    const [s, t, c] = await Promise.all([
+      Student.countDocuments({ department: dep.name }),
+      Teacher.countDocuments({ department: dep.name }),
+      Course.countDocuments({ targetProgram: dep.name })
+    ]);
+    if (s + t + c > 0) {
+      return res.status(400).json({ success: false, message: `Cannot delete "${dep.name}" while it is in use (${s} student(s), ${t} teacher(s), ${c} course(s)). Reassign them first.` });
+    }
+    await dep.deleteOne();
+    res.json({ success: true, message: 'Department deleted.' });
+  } catch (err) { fail(res, err, 'Failed to delete department.'); }
+};
+
+/* ------------------------------------------------------------------ */
 /*  BROADCAST NOTIFICATIONS                                            */
 /* ------------------------------------------------------------------ */
 const broadcast = async (req, res) => {
@@ -546,7 +685,8 @@ const changeOwnPassword = async (req, res) => {
 
 module.exports = {
   getSystemStats,
-  getAllUsers, createUser, updateUser, setUserStatus, resetUserPassword, deleteUser,
+  getAllUsers, createUser, previewNextSchoolId, updateUser, setUserStatus, resetUserPassword, deleteUser,
+  completeStudentCourse, getDepartments, createDepartment, updateDepartment, deleteDepartment,
   getAllCourses, createCourse, updateCourse, deleteCourse, getCourseRoster, assignUserCourse, removeUserCourse,
   getCourseContent, addContentItem, updateContentItem, deleteContentItem,
   getAssignments, updateAssignment, deleteAssignment, getSubmissions, updateSubmission, deleteSubmission,

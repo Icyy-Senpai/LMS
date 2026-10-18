@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { message } from 'antd';
 import AssignmentBuilder from './AssignmentBuilder';
 import GradingSection from './GradingSection';
+import ClassRoster from './ClassRoster';
 import api from '../../api';
 
-export default function CourseWorkspace({ course, onBack }) {
+export default function CourseWorkspace({ course, onBack, teacher }) {
   const [courseContent, setCourseContent] = useState(null);
   const [courseAssignments, setCourseAssignments] = useState([]);
   const [loadingContent, setLoadingContent] = useState(false);
@@ -131,6 +132,9 @@ export default function CourseWorkspace({ course, onBack }) {
       <h3 style={{ marginBottom: '20px' }}>Workspace: {course.code} - {course.name}</h3>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+        {/* Class roster: mark registered students' course as completed */}
+        {teacher && <ClassRoster course={course} teacher={teacher} />}
         
         {/* Announcements Section */}
         <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>

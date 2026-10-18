@@ -67,7 +67,7 @@ export default function App() {
       ) : user.accountType === 'Student' ? (
         <StudentDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : user.accountType === 'Teacher' ? (
-        <TeacherDashboard user={user} onLogout={handleLogout} />
+        <TeacherDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : user.accountType === 'Admin' ? (
         <AdminDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : (

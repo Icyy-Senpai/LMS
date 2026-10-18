@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import CourseWorkspace from './CourseWorkspace';
 import Network from '../Shared/Network';
 import Forum from '../Shared/Forum';
+import Mailbox from '../Shared/Mailbox';
 import api from '../../api';
 import logoImage from '../../logo.png';
 
@@ -90,7 +91,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
             contentRes.data.content.announcements.forEach(ann => {
               const annDate = new Date(ann.date);
               if ((now - annDate) / (1000 * 60 * 60 * 24) <= 3) {
-                alerts.push({ id: `ann-${Math.random()}`, type: 'Announcement', courseCode: course.code, title: `Announcement: ${ann.title}`, description: ann.content, date: annDate, isUrgent: false });
+                alerts.push({ id: `ann-${Math.random()}`, type: 'Announcement', tab: 'announcements', courseCode: course.code, title: `Announcement: ${ann.title}`, description: ann.content, date: annDate, isUrgent: false });
               }
             });
           }
@@ -217,6 +218,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
     )},
     { key: 'network', icon: <UserOutlined />, label: 'Friends & Chat' },
     { key: 'forum', icon: <CommentOutlined />, label: 'Forums' },
+    { key: 'mailbox', icon: <MailOutlined />, label: <span>Mailbox <Badge count={notifications.filter(n => !n.isRead).length} size="small" /></span> },
     { type: 'divider' },
     { key: 'profile', icon: <SettingOutlined />, label: 'Profile' },
   ];
@@ -293,6 +295,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                   ) : (
                     <div style={{ padding: '20px', textAlign: 'center' }}><Text type="secondary">No recent course alerts.</Text></div>
                   )}
+                  <Button type="link" block onClick={() => { setActiveTab('mailbox'); setSelectedCourse(null); }}>Open Mailbox</Button>
                 </div>
               } 
             >
@@ -326,6 +329,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                   ) : (
                     <div style={{ padding: '20px', textAlign: 'center' }}><Text type="secondary">No new notifications.</Text></div>
                   )}
+                  <Button type="link" block onClick={() => { setActiveTab('mailbox'); setSelectedCourse(null); }}>Open Mailbox</Button>
                 </div>
               } 
             >
@@ -337,7 +341,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
           </Space>
         </Header>
         <Content style={{ margin: '24px' }}>
-          {selectedCourse ? <CourseWorkspace course={selectedCourse} onBack={() => setSelectedCourse(null)} /> : (
+          {selectedCourse ? <CourseWorkspace course={selectedCourse} teacher={user} onBack={() => setSelectedCourse(null)} /> : (
             <>
               {activeTab === 'dashboard' && (
                 <Row gutter={[24, 24]} justify="space-between">
@@ -388,6 +392,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                 </Row>
               )}
               {activeTab === 'network' && <Network currentUser={user} />}
+              {activeTab === 'mailbox' && <Mailbox user={user} notifications={notifications} onNotificationsChange={setNotifications} courseAlerts={mailboxItems} onOpenCourse={(code) => { const c = myCourses.find(x => x.code === code); if (c) setSelectedCourse(c); }} />}
               {activeTab === 'forum' && (
                 <div style={{ padding: '20px', background: '#fff', borderRadius: '8px' }}>
                   <Title level={4}>Forums (Moderation)</Title>

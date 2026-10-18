@@ -89,7 +89,10 @@ const getNotifications = async (req, res) => {
 
 const markNotificationsRead = async (req, res) => {
   try {
-    await Notification.updateMany({ userSchoolId: req.body.userId, isRead: false }, { isRead: true });
+    const { userId, notificationId } = req.body;
+    // With a notificationId only that one is marked read; without it, everything for the user is.
+    const filter = notificationId ? { _id: notificationId, userSchoolId: userId } : { userSchoolId: userId, isRead: false };
+    await Notification.updateMany(filter, { isRead: true });
     res.json({ success: true });
   } catch (error) { res.status(500).json({ success: false }); }
 };

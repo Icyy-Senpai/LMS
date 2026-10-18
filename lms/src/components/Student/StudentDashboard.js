@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Table, Space, Select, Divider } from 'antd';
-import { UserOutlined, DashboardOutlined, FileDoneOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, MailOutlined } from '@ant-design/icons';
+import { UserOutlined, DashboardOutlined, FileDoneOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, MailOutlined, TrophyOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import CourseView from './CourseView';
 import Network from '../Shared/Network';
 import Forum from '../Shared/Forum';
+import Mailbox from '../Shared/Mailbox';
 import api from '../../api';
 import logoImage from '../../logo.png';
 
@@ -37,6 +38,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
   
   const [notifications, setNotifications] = useState([]);
   const [mailboxItems, setMailboxItems] = useState([]);
+  const [taskToOpen, setTaskToOpen] = useState(null); // upcoming task the student clicked; drives the "go to this task?" prompt
 
   const [form] = Form.useForm();
   const [isEditingBio, setIsEditingBio] = useState(false);
@@ -84,17 +86,27 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     fetchNotifications();
   }, [user.schoolId, activeTab]);
 
-  const enrolledWithProgress = allCourses.filter(course => 
-     (user.enrolledCourseSubjects && user.enrolledCourseSubjects.some(e => e.code === course.code)) || 
-     (user.enrolledCourses && user.enrolledCourses.some(e => e.code === course.code))
-  ).map(course => {
-    const legacy = user.enrolledCourses?.find(e => e.code === course.code);
-    const newE = user.enrolledCourseSubjects?.find(e => e.code === course.code);
-    return { ...course, progress: legacy?.progress || newE?.progress || 0 };
-  });
+  // The user object is a login-time snapshot. Re-read it when switching tabs so that changes made by
+  // others (e.g. a teacher/admin marking a course complete) show up without logging out and back in.
+  useEffect(() => {
+    let cancelled = false;
+    api.get(`/user/${user.schoolId}`)
+      .then(res => { if (!cancelled && res.data.success) onUpdateProfile({ ...user, ...res.data.user }); })
+      .catch(() => { /* keep the snapshot we already have */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.schoolId, activeTab]);
 
-  const currentlyEnrolled = enrolledWithProgress.filter(c => c.progress < 100);
-  const completedCourses = enrolledWithProgress.filter(c => c.progress >= 100);
+  // Registered (in-progress) courses live in enrolledCourseSubjects; finished ones are moved to completedCourses.
+  const enrolledCodes = (user.enrolledCourseSubjects || []).map(e => e.code);
+  const enrolledKey = enrolledCodes.join(',');
+  const currentlyEnrolled = allCourses.filter(course => enrolledCodes.includes(course.code));
+  const completedCourses = (user.completedCourses || [])
+    .map(rec => {
+      const live = allCourses.find(c => c.code === rec.code) || {};
+      return { ...live, code: rec.code, name: rec.name || live.name || rec.code, instructor: rec.instructor || live.instructor, completedAt: rec.completedAt, completedBy: rec.completedBy, completedByRole: rec.completedByRole };
+    })
+    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
   const programAvailableCourses = allCourses.filter(c => c.targetProgram === user.department || c.department === user.department);
 
   const getOverdueText = (deadline) => {
@@ -108,7 +120,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
   };
 
   useEffect(() => {
-    if (currentlyEnrolled.length === 0) return;
+    if (currentlyEnrolled.length === 0) { setUpcomingTasks([]); setMailboxItems([]); return; }
     const fetchTasksAndMailbox = async () => {
       let tasks = [];
       let alerts = [];
@@ -126,7 +138,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
               const annDate = new Date(ann.date);
               if ((now - annDate) / (1000 * 60 * 60 * 24) <= 3) {
                 alerts.push({
-                  id: `ann-${Math.random()}`, type: 'Announcement', courseCode: course.code,
+                  id: `ann-${Math.random()}`, type: 'Announcement', tab: 'announcements', courseCode: course.code,
                   title: `Announcement: ${ann.title}`, description: ann.content, date: annDate, isUrgent: false
                 });
               }
@@ -149,7 +161,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
 
                 if (hoursLeft > 0 && hoursLeft <= 24) {
                   alerts.push({
-                    id: `due-${ass._id}`, type: 'Deadline', courseCode: course.code,
+                    id: `due-${ass._id}`, type: 'Deadline', tab: 'assignments', courseCode: course.code,
                     title: `Upcoming Deadline: ${ass.title}`, description: `Due in ${Math.ceil(hoursLeft)} hours!`, date: dl, isUrgent: true
                   });
                 }
@@ -158,7 +170,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
               const createdAt = new Date(parseInt(ass._id.substring(0, 8), 16) * 1000);
               if ((now - createdAt) / (1000 * 60 * 60 * 24) <= 3) {
                 alerts.push({
-                  id: `new-${ass._id}`, type: `New ${ass.type || 'Assignment'}`, courseCode: course.code,
+                  id: `new-${ass._id}`, type: `New ${ass.type || 'Assignment'}`, tab: 'assignments', courseCode: course.code,
                   title: `New ${ass.type || 'Assignment'} Posted`, description: ass.title, date: createdAt, isUrgent: false
                 });
               }
@@ -172,7 +184,8 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
       setMailboxItems(alerts);
     };
     fetchTasksAndMailbox();
-  }, [allCourses]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCourses, enrolledKey]);
 
   const handleProfileUpdate = async (values) => {
     try {
@@ -245,6 +258,19 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     setCourseModalTasks((taskCategory === 'upcoming' ? upcomingOnlyTasks : overdueOnlyTasks).filter(t => t.courseCode === courseCode));
   };
 
+  // Student confirmed they want to jump to the task they clicked in "Upcoming Tasks"
+  const openTask = () => {
+    if (!taskToOpen) return;
+    const course = currentlyEnrolled.find(c => c.code === taskToOpen.courseCode) || { code: taskToOpen.courseCode, name: taskToOpen.courseName };
+    setSelectedCourse({ ...course, initialTab: 'assignments', focusTaskId: taskToOpen.id });
+    setTaskToOpen(null);
+  };
+
+  const openCourseFromMailbox = (code, tab) => {
+    const course = currentlyEnrolled.find(c => c.code === code);
+    if (course) setSelectedCourse({ ...course, initialTab: tab || 'announcements' });
+  };
+
   const markNotificationsAsRead = async () => {
     await api.post('/notifications/read', { userId: user.schoolId });
     setNotifications(notifications.map(n => ({ ...n, isRead: true })));
@@ -265,7 +291,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
         <Tabs.TabPane tab={<Badge count={completedCourses.length} offset={[10, 0]} color="green">Completed</Badge>} key="completed">
           {completedCourses.length > 0 ? (
             <List size="small" dataSource={completedCourses} renderItem={c => (
-              <List.Item style={{ cursor: 'pointer' }} onClick={() => { setSelectedCourse(c); }}>
+              <List.Item style={{ cursor: 'pointer' }} onClick={() => { setSelectedCourse({ ...c, readOnly: true }); }}>
                 <Text strong>{c.code}</Text> <br/> <Text type="secondary" style={{ fontSize: '12px' }}>{c.name}</Text>
               </List.Item>
             )} />
@@ -287,6 +313,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     { key: 'grades', icon: <FileDoneOutlined />, label: 'Grades & Certificates' },
     { key: 'network', icon: <UserOutlined />, label: 'Friends & Chat' },
     { key: 'forum', icon: <CommentOutlined />, label: 'Forums' },
+    { key: 'mailbox', icon: <MailOutlined />, label: <span>Mailbox <Badge count={notifications.filter(n => !n.isRead).length} size="small" /></span> },
     { type: 'divider' },
     { key: 'profile', icon: <SettingOutlined />, label: 'Profile' },
   ];
@@ -321,6 +348,19 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
           <div style={{ marginTop: 16, textAlign: 'right' }}>
             <Button type="primary" onClick={() => { setSelectedCourse(activeCourseModal); setActiveCourseModal(null); }}>Open Course Workspace</Button>
           </div>
+        )}
+      </Modal>
+
+      <Modal title="Go to this task?" open={Boolean(taskToOpen)} onOk={openTask} onCancel={() => setTaskToOpen(null)} okText="Yes, take me there" cancelText="Not now" destroyOnHidden>
+        {taskToOpen && (
+          <>
+            <Paragraph>Do you want to be redirected to <Text strong>{taskToOpen.title}</Text>?</Paragraph>
+            <Space wrap>
+              <Tag color="geekblue">{taskToOpen.courseCode}</Tag>
+              <Tag color={taskToOpen.type === 'Quiz' ? 'purple' : 'blue'}>{taskToOpen.type}</Tag>
+              <Text type="secondary">Due: {taskToOpen.dateStr}</Text>
+            </Space>
+          </>
         )}
       </Modal>
 
@@ -408,6 +448,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                   ) : (
                     <div style={{ padding: '20px', textAlign: 'center' }}><Text type="secondary">No recent course alerts.</Text></div>
                   )}
+                  <Button type="link" block onClick={() => { setActiveTab('mailbox'); setSelectedCourse(null); }}>Open Mailbox</Button>
                 </div>
               } 
             >
@@ -441,6 +482,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                   ) : (
                     <div style={{ padding: '20px', textAlign: 'center' }}><Text type="secondary">No new notifications.</Text></div>
                   )}
+                  <Button type="link" block onClick={() => { setActiveTab('mailbox'); setSelectedCourse(null); }}>Open Mailbox</Button>
                 </div>
               } 
             >
@@ -453,7 +495,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
         </Header>
         <Content style={{ margin: '24px' }}>
           {selectedCourse ? (
-            <CourseView user={user} course={selectedCourse} initialTab={selectedCourse.initialTab || 'announcements'} onBack={() => setSelectedCourse(null)} />
+            <CourseView user={user} course={selectedCourse} initialTab={selectedCourse.initialTab || 'announcements'} focusTaskId={selectedCourse.focusTaskId} readOnly={Boolean(selectedCourse.readOnly)} onBack={() => setSelectedCourse(null)} />
           ) : (
             <>
               {activeTab === 'dashboard' && (
@@ -487,7 +529,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                       <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px' }} title={<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '13px' }}>Tasks Catalog</span><Select value={taskCategory} onChange={setTaskCategory} size="small" style={{ width: 110, fontSize: '11px' }} options={[{ value: 'upcoming', label: 'Upcoming Tasks' }, { value: 'overdue', label: 'Overdue Tasks' }]} /></div>} bodyStyle={{ maxHeight: '140px', overflowY: 'auto', padding: '4px 8px' }}>
                         {taskCategory === 'upcoming' ? (
                           <List size="small" dataSource={upcomingOnlyTasks} locale={{ emptyText: 'No upcoming tasks.' }} renderItem={item => (
-                            <List.Item style={{ padding: '4px 0', borderBottom: '1px solid #f5f5f5' }}>
+                            <List.Item style={{ padding: '4px 0', borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }} onClick={() => setTaskToOpen(item)} title="Click to open this task">
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                                 <Space size={4}><Tag color={item.type === 'Quiz' ? 'purple' : 'geekblue'} style={{ margin: 0, fontSize: '9px' }}>{item.courseCode}</Tag><Text style={{ fontSize: '11px', fontWeight: 500 }}>{item.title}</Text></Space>
                                 <Text type="secondary" style={{ fontSize: '10px' }}>{item.dateStr}</Text>
@@ -505,7 +547,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                           )} />
                         )}
                       </Card>
-                      <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px' }} title={<span style={{ fontSize: '13px' }}>Block Leaderboard</span>} extra={<Select value={leaderboardCourse} onChange={setLeaderboardCourse} style={{ width: 100, fontSize: '11px' }} size="small" options={[{ value: 'all', label: 'All Courses' }, ...enrolledWithProgress.map(c => ({ value: c.code, label: c.code }))]} />} bodyStyle={{ maxHeight: '160px', overflowY: 'auto', padding: '4px 8px' }}>
+                      <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px' }} title={<span style={{ fontSize: '13px' }}>Block Leaderboard</span>} extra={<Select value={leaderboardCourse} onChange={setLeaderboardCourse} style={{ width: 100, fontSize: '11px' }} size="small" options={[{ value: 'all', label: 'All Courses' }, ...currentlyEnrolled.map(c => ({ value: c.code, label: c.code }))]} />} bodyStyle={{ maxHeight: '160px', overflowY: 'auto', padding: '4px 8px' }}>
                         <Table size="small" dataSource={leaderboard} rowKey="_id" pagination={false} columns={[
                           { title: 'Rank', key: 'rank', render: (_, __, idx) => <Text strong style={{ fontSize: 12, color: idx === 0 ? '#faad14' : idx === 1 ? '#8c8c8c' : idx === 2 ? '#d48806' : 'inherit' }}>#{idx + 1}</Text> },
                           { title: 'Student', key: 'student', render: (_, record) => <Space><Avatar size="small" src={record.photoUrl} icon={!record.photoUrl && <UserOutlined />} /><Text style={{fontSize: '11px'}} strong>{record.firstName} {record.lastName}</Text></Space> },
@@ -517,6 +559,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                 </Row>
               )}
               {activeTab === 'network' && <Network currentUser={user} />}
+              {activeTab === 'mailbox' && <Mailbox user={user} notifications={notifications} onNotificationsChange={setNotifications} courseAlerts={mailboxItems} onOpenCourse={openCourseFromMailbox} />}
               {activeTab === 'forum' && (
                 <div style={{ padding: '20px', background: '#fff', borderRadius: '8px' }}>
                   <Title level={4}>Forums</Title>
@@ -543,8 +586,9 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                     </Row>
                   </Card>
                   <Card>
-                    <Tabs defaultActiveKey="bio">
-                      <Tabs.TabPane tab="BIO" key="bio">
+                    <Tabs defaultActiveKey="bio" items={[
+                      { key: 'bio', label: 'BIO', children: (
+                        <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                           <Title level={5} style={{ margin: 0 }}>Student Biography</Title>
                           {!isEditingBio ? <Button icon={<EditOutlined />} onClick={() => setIsEditingBio(true)}>Edit Bio</Button> : <Space><Button type="primary" onClick={handleBioSave}>Save</Button><Button onClick={() => { setIsEditingBio(false); setBioText(user.bio || ''); }}>Cancel</Button></Space>}
@@ -554,11 +598,29 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                         <Text type="secondary"><strong>Personal Email:</strong> {user.personalEmail}</Text><br/>
                         <Text type="secondary"><strong>Mobile Number:</strong> {user.mobileNum}</Text><br/>
                         <Text type="secondary"><strong>Present Address:</strong> {user.presentAddress}</Text>
-                      </Tabs.TabPane>
-                      <Tabs.TabPane tab="Courses" key="courses">
-                        <List dataSource={enrolledWithProgress} locale={{ emptyText: 'No enrolled courses found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Tag color="blue">{course.code}</Tag>} /></List.Item>)} />
-                      </Tabs.TabPane>
-                    </Tabs>
+                      </>
+                      ) },
+                      { key: 'courses', label: 'Courses', children: (
+                        <List dataSource={currentlyEnrolled} locale={{ emptyText: 'No enrolled courses found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Tag color="blue">{course.code}</Tag>} /></List.Item>)} />
+                      ) },
+                      { key: 'completed', label: <span><TrophyOutlined /> Completed Courses ({completedCourses.length})</span>, children: (
+                        <List dataSource={completedCourses} locale={{ emptyText: 'No completed courses yet.' }} renderItem={course => (
+                          <List.Item extra={<Tag color="green">Completed</Tag>}>
+                            <List.Item.Meta
+                              title={course.name}
+                              description={
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                  <span><Tag color="blue">{course.code}</Tag>{course.instructor && course.instructor !== 'TBA' ? <Text type="secondary" style={{ fontSize: 12 }}>{course.instructor}</Text> : null}</span>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    Completed on {course.completedAt ? dayjs(course.completedAt).format('MMM D, YYYY') : '-'}{course.completedBy ? ` · marked by ${course.completedBy}` : ''}
+                                  </Text>
+                                </div>
+                              }
+                            />
+                          </List.Item>
+                        )} />
+                      ) }
+                    ]} />
                   </Card>
                 </div>
               )}

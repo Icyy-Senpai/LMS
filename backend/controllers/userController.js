@@ -88,6 +88,21 @@ const updateTodos = async (req, res) => {
   }
 };
 
+// Fresh copy of the logged-in user (the dashboard keeps a login-time snapshot in localStorage, which
+// goes stale when e.g. a teacher marks one of the student's courses complete).
+const getUser = async (req, res) => {
+  try {
+    const { schoolId } = req.params;
+    let user = await Student.findOne({ schoolId }, '-password').lean();
+    if (!user) user = await Teacher.findOne({ schoolId }, '-password').lean();
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.status === 'Suspended') return res.status(403).json({ success: false, message: 'This account has been suspended.' });
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 const getLeaderboard = async (req, res) => {
   try {
     const { schoolId, courseCode } = req.query;
@@ -104,6 +119,7 @@ const getLeaderboard = async (req, res) => {
     if (courseCode && courseCode !== 'all') {
       query.$or = [
         { "enrolledCourseSubjects.code": courseCode },
+        { "completedCourses.code": courseCode },
         { "enrolledCourses.code": courseCode }
       ];
     }
@@ -118,4 +134,4 @@ const getLeaderboard = async (req, res) => {
   }
 };
 
-module.exports = { login, getAdminUsers, updateProfile, updateTodos, getLeaderboard };
+module.exports = { login, getAdminUsers, getUser, updateProfile, updateTodos, getLeaderboard };

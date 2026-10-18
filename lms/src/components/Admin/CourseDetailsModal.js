@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Modal, Tabs, List, Button, Popconfirm, Select, Space, Tag, Typography, Empty, message } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import api from '../../api';
 import { showError } from './adminUtils';
 import CourseContentManager from './CourseContentManager';
@@ -10,7 +11,7 @@ const { Text } = Typography;
 
 /** Everything an admin can manage inside one course: roster, announcements, videos, materials, assignments. */
 export default function CourseDetailsModal({ open, course, allUsers, onClose, onChanged }) {
-  const [roster, setRoster] = useState({ students: [], teachers: [] });
+  const [roster, setRoster] = useState({ students: [], teachers: [], completedStudents: [] });
   const [loading, setLoading] = useState(false);
   const [studentToAdd, setStudentToAdd] = useState();
 
@@ -19,14 +20,14 @@ export default function CourseDetailsModal({ open, course, allUsers, onClose, on
     setLoading(true);
     try {
       const res = await api.get(`/admin/courses/${course.code}/roster`);
-      if (res.data.success) setRoster({ students: res.data.students, teachers: res.data.teachers });
+      if (res.data.success) setRoster({ students: res.data.students, teachers: res.data.teachers, completedStudents: res.data.completedStudents || [] });
     } catch (err) { showError(err, 'Failed to load roster.'); }
     setLoading(false);
   }, [course]);
 
   useEffect(() => { if (open) { loadRoster(); setStudentToAdd(undefined); } }, [open, loadRoster]);
 
-  const enrolledIds = new Set(roster.students.map(s => s.schoolId));
+  const enrolledIds = new Set([...roster.students, ...roster.completedStudents].map(s => s.schoolId));
   const candidates = allUsers.filter(u => u.accountType === 'Student' && !enrolledIds.has(u.schoolId))
     .map(u => ({ value: u.schoolId, label: `${u.lastName}, ${u.firstName} (${u.schoolId})` }));
 
@@ -47,6 +48,13 @@ export default function CourseDetailsModal({ open, course, allUsers, onClose, on
     } catch (err) { showError(err, 'Failed to remove.'); }
   };
 
+  const complete = async (schoolId) => {
+    try {
+      const res = await api.post('/admin/complete-course', { schoolId, courseCode: course.code });
+      if (res.data.success) { message.success(res.data.message); loadRoster(); onChanged(); }
+    } catch (err) { showError(err, 'Failed to mark course as completed.'); }
+  };
+
   const rosterTab = (
     <>
       <Text strong>Instructor</Text>
@@ -63,8 +71,20 @@ export default function CourseDetailsModal({ open, course, allUsers, onClose, on
       <List size="small" loading={loading} dataSource={roster.students} locale={{ emptyText: <Empty description="No students enrolled" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
         pagination={{ pageSize: 6, size: 'small', hideOnSinglePage: true }}
         renderItem={s => (
-          <List.Item actions={[<Popconfirm key="r" title="Unenrol this student?" onConfirm={() => unenrol(s.schoolId, 'Student')} okText="Unenrol" cancelText="Cancel"><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>]}>
+          <List.Item actions={[
+            <Popconfirm key="c" title="Mark this course as completed?" description="It moves to the student's Completed Courses." onConfirm={() => complete(s.schoolId)} okText="Mark Completed" cancelText="Cancel"><Button size="small" type="primary" icon={<CheckCircleOutlined />}>Mark Completed</Button></Popconfirm>,
+            <Popconfirm key="r" title="Unenrol this student?" onConfirm={() => unenrol(s.schoolId, 'Student')} okText="Unenrol" cancelText="Cancel"><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>
+          ]}>
             <List.Item.Meta title={`${s.lastName}, ${s.firstName}`} description={`${s.schoolId} · ${s.department || '-'} · ${s.block || '-'}`} />
+          </List.Item>
+        )} />
+      <div style={{ marginTop: 16 }}><Text strong>Completed ({roster.completedStudents.length})</Text></div>
+      <List size="small" dataSource={roster.completedStudents} locale={{ emptyText: <Empty description="No students have completed this course yet" image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+        pagination={{ pageSize: 6, size: 'small', hideOnSinglePage: true }}
+        renderItem={s => (
+          <List.Item extra={<Tag color="green">Completed</Tag>}>
+            <List.Item.Meta title={`${s.lastName}, ${s.firstName}`}
+              description={`${s.schoolId}${s.completion?.completedAt ? ` · ${dayjs(s.completion.completedAt).format('MMM D, YYYY')}` : ''}${s.completion?.completedBy ? ` · by ${s.completion.completedBy}` : ''}`} />
           </List.Item>
         )} />
     </>

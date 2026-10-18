@@ -10,6 +10,7 @@ router.get('/admin/stats', c.getSystemStats);
 
 // Users
 router.get('/admin/users', c.getAllUsers);
+router.get('/admin/next-school-id', c.previewNextSchoolId);
 router.post('/admin/users', c.createUser);
 router.put('/admin/users', c.updateUser);
 router.put('/admin/users/status', c.setUserStatus);
@@ -24,6 +25,13 @@ router.delete('/admin/courses/:code', c.deleteCourse);
 router.get('/admin/courses/:code/roster', c.getCourseRoster);
 router.post('/admin/assign-course', c.assignUserCourse);
 router.post('/admin/remove-course', c.removeUserCourse);
+router.post('/admin/complete-course', c.completeStudentCourse);
+
+// Departments
+router.get('/admin/departments', c.getDepartments);
+router.post('/admin/departments', c.createDepartment);
+router.put('/admin/departments/:id', c.updateDepartment);
+router.delete('/admin/departments/:id', c.deleteDepartment);
 
 // Course content (announcements | videos | materials)
 router.get('/admin/courses/:code/content', c.getCourseContent);

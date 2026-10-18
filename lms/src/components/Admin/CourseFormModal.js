@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Select, AutoComplete, Button, Row, Col, message } from 'antd';
+import { Modal, Form, Input, Select, Button, Row, Col, message } from 'antd';
 import api from '../../api';
 import { showError } from './adminUtils';
 
@@ -38,7 +38,9 @@ export default function CourseFormModal({ open, course, teachers = [], programs 
         <Row gutter={16}>
           <Col span={16}>
             <Form.Item name="targetProgram" label="Target Program" rules={[{ required: true }]} extra="Students see this course in their catalog when this matches their department.">
-              <AutoComplete options={programs.map(p => ({ value: p }))} placeholder="e.g. BS Information Technology" filterOption={(i, o) => o.value.toLowerCase().includes(i.toLowerCase())} />
+              <Select showSearch optionFilterProp="label" placeholder="Select a department"
+                options={[...new Set([...programs, course?.targetProgram].filter(Boolean))].map(p => ({ value: p, label: p }))}
+                notFoundContent="No departments yet. Create one in the Departments tab." />
             </Form.Item>
           </Col>
           <Col span={8}><Form.Item name="targetYear" label="Target Year" rules={[{ required: true }]}><Input placeholder="e.g. 1st Year" /></Form.Item></Col>

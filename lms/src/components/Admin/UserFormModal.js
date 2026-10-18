@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Select, Row, Col, Button, Divider, AutoComplete, Tag, message } from 'antd';
+import { Modal, Form, Input, Select, Row, Col, Button, Divider, Tag, message } from 'antd';
 import api from '../../api';
 import { showError } from './adminUtils';
 
@@ -27,10 +27,23 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
     }
   }, [open, isEdit, user, form]);
 
+  // New Student / Teacher: preview the School ID the server will assign (next number after the highest existing one).
+  // The server picks the final value when the account is created, so this is display-only.
+  useEffect(() => {
+    if (!open || isEdit || (accountType !== 'Student' && accountType !== 'Teacher')) return;
+    let cancelled = false;
+    form.setFieldsValue({ schoolId: undefined });
+    api.get('/admin/next-school-id', { params: { accountType } })
+      .then(res => { if (!cancelled && res.data.success) form.setFieldsValue({ schoolId: res.data.schoolId }); })
+      .catch(() => { /* the field just stays on its placeholder; the server still assigns an ID */ });
+    return () => { cancelled = true; };
+  }, [open, isEdit, accountType, form]);
+
   const handleFinish = async (values) => {
     setSaving(true);
     try {
       const payload = { ...values };
+      if (!isEdit) delete payload.schoolId; // always assigned by the server
       ['mobileNum', 'teleNum'].forEach(k => { if (payload[k] !== undefined && payload[k] !== '') payload[k] = Number(payload[k]); });
       if (payload.yearLevel !== undefined) payload.yearLevel = Number(payload.yearLevel);
       const res = isEdit
@@ -45,7 +58,8 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
     setSaving(false);
   };
 
-  const programOptions = programs.map(p => ({ value: p }));
+  // Departments are created by the admin (Departments tab). Keep a user's current value selectable even if it is not registered.
+  const programOptions = [...new Set([...programs, user?.department].filter(Boolean))].map(p => ({ value: p, label: p }));
   const isAdminType = accountType === 'Admin';
 
   return (
@@ -69,8 +83,9 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
             </Col>
           ) : (
             <Col span={12}>
-              <Form.Item name="schoolId" label="School / Faculty ID" rules={[{ required: !isEdit }]} extra={isEdit ? 'The ID cannot be changed because records reference it.' : undefined}>
-                <Input disabled={isEdit} />
+              <Form.Item name="schoolId" label="School / Faculty ID"
+                extra={isEdit ? 'The ID cannot be changed because records reference it.' : 'Assigned automatically: the next number after the highest existing ID.'}>
+                <Input disabled placeholder={isEdit ? undefined : 'Generating...'} />
               </Form.Item>
             </Col>
           )}
@@ -121,8 +136,8 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
             <Row gutter={16}>
               <Col span={accountType === 'Student' ? 12 : 24}>
                 <Form.Item name="department" label={accountType === 'Student' ? 'Program / Department' : 'Department'} rules={[{ required: accountType === 'Student' }]}
-                  extra={accountType === 'Student' ? 'Must match a course\'s Target Program for the course catalog to show it.' : undefined}>
-                  <AutoComplete options={programOptions} filterOption={(i, o) => o.value.toLowerCase().includes(i.toLowerCase())} />
+                  extra={accountType === 'Student' ? 'Courses whose Target Program matches this department appear in the student\'s catalog.' : undefined}>
+                  <Select showSearch allowClear={accountType !== 'Student'} options={programOptions} optionFilterProp="label" placeholder="Select a department" notFoundContent="No departments yet. Create one in the Departments tab." />
                 </Form.Item>
               </Col>
               {accountType === 'Student' && (
