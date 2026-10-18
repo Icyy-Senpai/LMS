@@ -8,6 +8,7 @@ const forumRoutes = require('./routes/forumRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const quizRoutes = require('./routes/quizRoutes');
 const socialRoutes = require('./routes/socialRoutes');
+const adminRoutes = require('./routes/adminRoutes'); // New
 
 const app = express();
 
@@ -24,5 +25,6 @@ app.use('/api', forumRoutes);
 app.use('/api', assignmentRoutes);
 app.use('/api', quizRoutes);
 app.use('/api', socialRoutes);
+app.use('/api', adminRoutes);
 
 app.listen(5000, () => console.log('Backend running on port 5000'));
