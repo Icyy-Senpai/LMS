@@ -286,7 +286,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     )},
     { key: 'grades', icon: <FileDoneOutlined />, label: 'Grades & Certificates' },
     { key: 'network', icon: <UserOutlined />, label: 'Friends & Chat' },
-    { key: 'forum', icon: <CommentOutlined />, label: 'Reddit Forums' },
+    { key: 'forum', icon: <CommentOutlined />, label: 'Forums' },
     { type: 'divider' },
     { key: 'profile', icon: <SettingOutlined />, label: 'Profile' },
   ];
@@ -519,7 +519,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
               {activeTab === 'network' && <Network currentUser={user} />}
               {activeTab === 'forum' && (
                 <div style={{ padding: '20px', background: '#fff', borderRadius: '8px' }}>
-                  <Title level={4}>Reddit Forums</Title>
+                  <Title level={4}>Forums</Title>
                   <Select placeholder="Select a Course to view its Forum" style={{ width: 300, marginBottom: 20 }} onChange={val => setForumCourseCode(val)} value={forumCourseCode}>
                     {currentlyEnrolled.map(c => <Select.Option key={c.code} value={c.code}>{c.code} - {c.name}</Select.Option>)}
                   </Select>
