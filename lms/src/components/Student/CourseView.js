@@ -6,6 +6,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
   const [courseContent, setCourseContent] = useState(null);
   const [courseAssignments, setCourseAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmittingQuiz, setIsSubmittingQuiz] = useState(false);
 
   const [isSubmitModalVisible, setIsSubmitModalVisible] = useState(false);
   const [activeAssignmentId, setActiveAssignmentId] = useState(null);
@@ -17,7 +18,6 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
   const [activeQuiz, setActiveQuiz] = useState(null);
   const [quizAnswers, setQuizAnswers] = useState({});
   
-  // Use ref to hold current quiz data for the event listener closure
   const activeQuizRef = useRef(null);
 
   useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
@@ -38,9 +38,6 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
     fetchCourseData();
   }, [course.code]);
 
-  // ==========================================
-  // FULL-SCREEN ANTI-CHEAT LOGIC
-  // ==========================================
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (activeQuizRef.current && !document.fullscreenElement) {
@@ -58,7 +55,6 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
         assignmentId: quiz._id,
         studentUsername: user.schoolId,
         answers: [],
-        grade: 0,
         cheatingFlag: true
       });
       setIsQuizModalVisible(false);
@@ -80,9 +76,6 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
     }
   };
 
-  // ==========================================
-  // STANDARD ASSIGNMENT LOGIC
-  // ==========================================
   const openSubmitModal = (assignmentId) => {
     setActiveAssignmentId(assignmentId);
     setSubmitFileData(null);
@@ -124,9 +117,6 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
     } catch (err) { alert("Server connection error"); }
   };
 
-  // ==========================================
-  // QUIZ SUBMISSION LOGIC
-  // ==========================================
   const handleQuizAnswerChange = (questionIndex, value) => {
     setQuizAnswers({ ...quizAnswers, [questionIndex]: value });
   };
@@ -137,20 +127,13 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
       return alert("Please answer all questions before submitting.");
     }
 
-    let autoScore = 0;
-    const pointsPerQuestion = activeQuiz.maxGrade / activeQuiz.questions.length;
-    
-    const formattedAnswers = activeQuiz.questions.map((q, idx) => {
-      const studentAnswer = quizAnswers[idx] || '';
-      const isCorrect = studentAnswer.trim().toLowerCase() === q.answer.trim().toLowerCase();
-      if ((q.type === 'mcq' || q.type === 'fill_blank') && isCorrect) {
-        autoScore += pointsPerQuestion;
-      }
-      return { question: q.question, studentAnswer, isCorrect, type: q.type };
-    });
+    setIsSubmittingQuiz(true);
+
+    const formattedAnswers = activeQuiz.questions.map((q, idx) => ({
+        studentAnswer: quizAnswers[idx] || "No answer provided"
+    }));
 
     try {
-      // Clear the ref before exiting fullscreen so it doesn't trigger the anti-cheat flag
       const currentQuiz = activeQuiz;
       activeQuizRef.current = null;
       if (document.fullscreenElement) {
@@ -161,19 +144,22 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
         assignmentId: currentQuiz._id,
         studentUsername: user.schoolId,
         answers: formattedAnswers,
-        grade: autoScore,
         cheatingFlag: false
       });
 
       if (response.data.success) {
-        alert(`Quiz submitted successfully! Auto-Score: ${autoScore.toFixed(2)}`);
+        alert(`Quiz submitted successfully! AI Graded Score: ${response.data.submission.grade}`);
         setIsQuizModalVisible(false);
         setActiveQuiz(null);
         fetchCourseData();
       } else {
         alert(response.data.message || "Submission failed");
       }
-    } catch (err) { alert("Server connection error"); }
+    } catch (err) { 
+      alert("Server connection error"); 
+    } finally {
+      setIsSubmittingQuiz(false); 
+    }
   };
 
   const getOverdueText = (deadline) => {
@@ -186,12 +172,44 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
     return `${mins} minute${mins > 1 ? 's' : ''}`;
   };
 
+  // Consolidates materials and assignment files for the Shared Files tab
+  const getAllSharedFiles = () => {
+    let allFiles = [];
+
+    if (courseContent?.materials?.length > 0) {
+        courseContent.materials.forEach(mat => {
+            allFiles.push({
+                source: 'Course Material',
+                title: mat.fileName ? `${mat.title} (${mat.fileName})` : mat.title,
+                url: mat.fileData || mat.fileUrl,
+                isBase64: !!mat.fileData
+            });
+        });
+    }
+
+    if (courseAssignments?.length > 0) {
+        courseAssignments.forEach(ass => {
+            if (ass.attachedFiles && ass.attachedFiles.length > 0) {
+                ass.attachedFiles.forEach(file => {
+                    allFiles.push({
+                        source: `Assignment: ${ass.title}`,
+                        title: file.fileName,
+                        url: file.fileData, 
+                        isBase64: true
+                    });
+                });
+            }
+        });
+    }
+
+    return allFiles;
+  };
+
   if (loading) return <div>Loading course...</div>;
 
   return (
     <div style={{ display: 'flex', minHeight: '80vh', fontFamily: 'sans-serif' }}>
       
-      {/* Standard Assignment Modal */}
       {isSubmitModalVisible && (
         <div style={{ position: 'fixed', top: '20%', left: '30%', background: 'white', border: '2px solid black', padding: '20px', zIndex: 100, boxShadow: '0 4px 8px rgba(0,0,0,0.2)' }}>
           <h3>Submit Assignment</h3>
@@ -204,7 +222,6 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
         </div>
       )}
 
-      {/* Full Screen AI Quiz Modal */}
       {isQuizModalVisible && activeQuiz && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', overflowY: 'auto', background: '#f0f2f5', padding: '40px', zIndex: 9999 }}>
           <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', padding: '30px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
@@ -212,98 +229,152 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
             <p style={{ color: 'red', fontWeight: 'bold' }}>WARNING: Do not exit full screen. If you exit or press Esc, your quiz will automatically submit with a score of 0.</p>
             <p><em>{activeQuiz.instructions}</em></p>
             
-            <form onSubmit={handleQuizSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
-              {activeQuiz.questions.map((q, idx) => (
-                <div key={idx} style={{ background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
-                  <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>{idx + 1}. {q.question}</p>
-                  
-                  {q.type === 'mcq' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px' }}>
-                      {q.options.map((opt, oIdx) => (
-                        <label key={oIdx} style={{ cursor: 'pointer' }}>
-                          <input 
-                            type="radio" 
-                            name={`question-${idx}`} 
-                            value={opt} 
-                            onChange={(e) => handleQuizAnswerChange(idx, e.target.value)} 
-                            required 
-                            style={{ marginRight: '8px' }}
-                          /> 
-                          {opt}
-                        </label>
-                      ))}
-                    </div>
-                  )}
-
-                  {q.type === 'fill_blank' && (
-                    <input 
-                      type="text" 
-                      placeholder="Type your answer here..." 
-                      onChange={(e) => handleQuizAnswerChange(idx, e.target.value)} 
-                      required 
-                      style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
-                    />
-                  )}
-
-                  {q.type === 'enumeration' && (
-                    <textarea 
-                      rows="3" 
-                      placeholder="List your answers here..." 
-                      style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} 
-                      onChange={(e) => handleQuizAnswerChange(idx, e.target.value)} 
-                      required 
-                    />
-                  )}
+            {isSubmittingQuiz ? (
+                <div style={{ textAlign: 'center', padding: '50px 0' }}>
+                    <h3 style={{ color: '#1890ff' }}>Evaluating Answers with AI...</h3>
+                    <p>Please wait while your quiz is being graded.</p>
                 </div>
-              ))}
-              
-              <div style={{ marginTop: '20px' }}>
-                <button type="submit" style={{ padding: '12px 24px', width: '100%', cursor: 'pointer', background: '#722ed1', color: '#fff', border: 'none', fontSize: '16px', fontWeight: 'bold', borderRadius: '4px' }}>Submit Quiz</button>
-              </div>
-            </form>
+            ) : (
+              <form onSubmit={handleQuizSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
+                {activeQuiz.questions.map((q, idx) => (
+                  <div key={idx} style={{ background: '#fafafa', padding: '15px', borderRadius: '8px', border: '1px solid #e8e8e8' }}>
+                    <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>{idx + 1}. {q.question}</p>
+                    
+                    {q.type === 'mcq' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px' }}>
+                        {q.options.map((opt, oIdx) => (
+                          <label key={oIdx} style={{ cursor: 'pointer' }}>
+                            <input 
+                              type="radio" name={`question-${idx}`} value={opt} 
+                              onChange={(e) => handleQuizAnswerChange(idx, e.target.value)} 
+                              required style={{ marginRight: '8px' }}
+                            /> 
+                            {opt}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    {q.type === 'fill_blank' && (
+                      <input 
+                        type="text" placeholder="Type your answer here..." 
+                        onChange={(e) => handleQuizAnswerChange(idx, e.target.value)} 
+                        required style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }}
+                      />
+                    )}
+
+                    {q.type === 'enumeration' && (
+                      <textarea 
+                        rows="3" placeholder="List your answers here..." 
+                        style={{ width: '100%', padding: '8px', boxSizing: 'border-box' }} 
+                        onChange={(e) => handleQuizAnswerChange(idx, e.target.value)} 
+                        required 
+                      />
+                    )}
+                  </div>
+                ))}
+                
+                <div style={{ marginTop: '20px' }}>
+                  <button type="submit" style={{ padding: '12px 24px', width: '100%', cursor: 'pointer', background: '#722ed1', color: '#fff', border: 'none', fontSize: '16px', fontWeight: 'bold', borderRadius: '4px' }}>Submit Quiz</button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
 
-      <div style={{ width: '200px', borderRight: '1px solid black', padding: '10px' }}>
-        <h4>{course.code}</h4>
-        <button onClick={onBack} style={{ marginBottom: '20px', padding: '5px' }}>Back to Dashboard</button>
+      <div style={{ width: '200px', borderRight: '1px solid #f0f0f0', padding: '10px', background: '#fafafa' }}>
+        <h4 style={{ color: '#1890ff', margin: '10px 0 20px 0', textAlign: 'center' }}>{course.code}</h4>
+        <button onClick={onBack} style={{ width: '100%', marginBottom: '20px', padding: '8px', cursor: 'pointer', border: '1px solid #d9d9d9', borderRadius: '4px', background: '#fff' }}>&larr; Back to Dashboard</button>
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <li><button onClick={() => setActiveTab('announcements')} style={{ width: '100%', padding: '8px', background: activeTab === 'announcements' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9' }}>Announcements</button></li>
-          <li><button onClick={() => setActiveTab('videos')} style={{ width: '100%', padding: '8px', background: activeTab === 'videos' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9' }}>Video Lessons</button></li>
-          <li><button onClick={() => setActiveTab('materials')} style={{ width: '100%', padding: '8px', background: activeTab === 'materials' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9' }}>Materials</button></li>
-          <li><button onClick={() => setActiveTab('assignments')} style={{ width: '100%', padding: '8px', background: activeTab === 'assignments' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9' }}>Assignments & Quizzes</button></li>
+          <li><button onClick={() => setActiveTab('announcements')} style={{ width: '100%', padding: '8px', background: activeTab === 'announcements' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Announcements</button></li>
+          <li><button onClick={() => setActiveTab('videos')} style={{ width: '100%', padding: '8px', background: activeTab === 'videos' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Video Lessons</button></li>
+          <li><button onClick={() => setActiveTab('materials')} style={{ width: '100%', padding: '8px', background: activeTab === 'materials' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Reading Materials</button></li>
+          <li><button onClick={() => setActiveTab('assignments')} style={{ width: '100%', padding: '8px', background: activeTab === 'assignments' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Assignments & Quizzes</button></li>
+          <li><button onClick={() => setActiveTab('shared_files')} style={{ width: '100%', padding: '8px', background: activeTab === 'shared_files' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer', fontWeight: 'bold' }}>Shared Files</button></li>
         </ul>
       </div>
       
       <div style={{ flex: 1, padding: '20px' }}>
         {activeTab === 'announcements' && (
-          <div>
-            <h3>Announcements</h3>
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #d9d9d9' }}>
+            <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Announcements</h3>
             {courseContent?.announcements?.length > 0 ? (
               <ul style={{ padding: 0, listStyle: 'none' }}>{courseContent.announcements.map((item, idx) => (
-                <li key={idx} style={{ border: '1px solid gray', padding: '10px', marginBottom: '10px', borderRadius: '4px' }}>
-                  <strong style={{ fontSize: '16px' }}>{item.title}</strong> <span style={{ color: 'gray', fontSize: '12px' }}>- {new Date(item.date).toLocaleDateString()}</span><br/><br/>{item.content}
+                <li key={idx} style={{ background: '#fafafa', border: '1px solid #e8e8e8', padding: '15px', marginBottom: '10px', borderRadius: '4px' }}>
+                  <strong style={{ fontSize: '16px', color: '#1890ff' }}>{item.title}</strong> <br/>
+                  <span style={{ color: 'gray', fontSize: '12px' }}>Posted: {new Date(item.date).toLocaleDateString()}</span>
+                  <p style={{ marginTop: '10px' }}>{item.content}</p>
                 </li>
               ))}</ul>
             ) : <p>No announcements.</p>}
           </div>
         )}
+        
         {activeTab === 'videos' && (
-          <div>
-            <h3>Video Lessons</h3>
-            {courseContent?.videos?.length > 0 ? <ul style={{ paddingLeft: '20px' }}>{courseContent.videos.map((item, idx) => (<li key={idx} style={{ marginBottom: '8px' }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#1890ff', textDecoration: 'none' }}>{item.title}</a></li>))}</ul> : <p>No videos.</p>}
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #d9d9d9' }}>
+            <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Video Lessons</h3>
+            {courseContent?.videos?.length > 0 ? <ul style={{ paddingLeft: '20px', lineHeight: '2' }}>{courseContent.videos.map((item, idx) => (<li key={idx} style={{ marginBottom: '8px' }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#1890ff', textDecoration: 'none', fontWeight: 'bold' }}>{item.title}</a></li>))}</ul> : <p>No videos.</p>}
           </div>
         )}
+        
         {activeTab === 'materials' && (
-          <div>
-            <h3>Reading Materials</h3>
-            {courseContent?.materials?.length > 0 ? <ul style={{ paddingLeft: '20px' }}>{courseContent.materials.map((item, idx) => (<li key={idx} style={{ marginBottom: '8px' }}><a href={item.fileUrl} target="_blank" rel="noreferrer" style={{ color: '#1890ff', textDecoration: 'none' }}>{item.title}</a></li>))}</ul> : <p>No materials.</p>}
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #d9d9d9' }}>
+            <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Reading Materials</h3>
+            {courseContent?.materials?.length > 0 ? (
+                <ul style={{ paddingLeft: '20px', lineHeight: '2' }}>
+                  {courseContent.materials.map((item, idx) => (
+                    <li key={idx} style={{ marginBottom: '8px' }}>
+                      <a 
+                          href={item.fileData || item.fileUrl} 
+                          download={item.fileData ? item.fileName : undefined} 
+                          target={item.fileData ? "_self" : "_blank"} 
+                          rel="noreferrer" 
+                          style={{ color: '#1890ff', textDecoration: 'none', fontWeight: 'bold' }}
+                      >
+                          {item.title} {item.fileName ? `(${item.fileName})` : ''}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+            ) : <p>No reading materials.</p>}
           </div>
         )}
+
+        {activeTab === 'shared_files' && (
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #d9d9d9' }}>
+            <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Course Shared Files</h3>
+            <p style={{ color: 'gray', marginBottom: '20px' }}>All documents and materials uploaded by your instructor for this course.</p>
+            
+            {getAllSharedFiles().length > 0 ? (
+                <ul style={{ padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {getAllSharedFiles().map((file, idx) => (
+                        <li key={idx} style={{ border: '1px solid #e8e8e8', padding: '15px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa' }}>
+                            <div>
+                                <strong style={{ fontSize: '15px' }}>{file.title}</strong>
+                                <div style={{ color: '#1890ff', fontSize: '12px', marginTop: '4px', fontWeight: 'bold' }}>Source: {file.source}</div>
+                            </div>
+                            <a 
+                                href={file.url} 
+                                download={file.isBase64 ? file.title : undefined}
+                                target={file.isBase64 ? "_self" : "_blank"} 
+                                rel="noreferrer"
+                                style={{ background: '#1890ff', color: '#fff', padding: '8px 16px', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold' }}
+                            >
+                                {file.isBase64 ? 'Download File' : 'Open Link'}
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p>No files have been shared in this course yet.</p>
+            )}
+          </div>
+        )}
+
         {activeTab === 'assignments' && (
-          <div>
-            <h3>Assignments & Quizzes</h3>
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #d9d9d9' }}>
+            <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Assignments & Quizzes</h3>
             {courseAssignments.length > 0 ? (
               courseAssignments.map(item => {
                 const mySubmission = item.submissions?.find(s => s.studentUsername === user.schoolId);
@@ -312,55 +383,75 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                 const isQuiz = item.type === 'Quiz';
 
                 return (
-                  <div key={item._id} style={{ border: '1px solid black', padding: '15px', marginBottom: '15px', borderRadius: '4px' }}>
-                    <h4 style={{ margin: '0 0 5px 0', color: isQuiz ? '#722ed1' : 'black' }}>
-                      {item.title} - (Max Score: {item.maxGrade})
-                    </h4>
-                    <p style={{ color: isPastDeadline && !mySubmission ? 'red' : 'gray', margin: '0 0 10px 0', fontSize: '12px' }}>Due: {new Date(item.deadline).toLocaleString()}</p>
-                    <p>{item.instructions}</p>
+                  <div key={item._id} style={{ border: '1px solid #e8e8e8', padding: '20px', marginBottom: '20px', borderRadius: '8px', background: '#fafafa' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', paddingBottom: '10px', marginBottom: '15px' }}>
+                        <h4 style={{ margin: 0, color: isQuiz ? '#722ed1' : '#000', fontSize: '18px' }}>
+                          {item.title} <span style={{ color: 'gray', fontSize: '14px', fontWeight: 'normal' }}> (Max Score: {item.maxGrade})</span>
+                        </h4>
+                        <span style={{ color: isPastDeadline && !mySubmission ? 'red' : 'gray', fontSize: '13px', fontWeight: 'bold' }}>
+                            Due: {new Date(item.deadline).toLocaleString()}
+                        </span>
+                    </div>
+                    
+                    <p style={{ fontSize: '15px' }}>{item.instructions}</p>
+                    
                     {item.attachedFiles?.length > 0 && (
-                      <div style={{ margin: '10px 0' }}><strong>Reference Files:</strong><ul style={{ margin: '5px 0', paddingLeft: '20px' }}>{item.attachedFiles.map((f, i) => <li key={i}><a href={f.fileUrl} target="_blank" rel="noreferrer" style={{ color: '#1890ff' }}>{f.title}</a></li>)}</ul></div>
+                      <div style={{ margin: '15px 0', padding: '10px', background: '#fff', border: '1px dashed #d9d9d9', borderRadius: '4px' }}>
+                        <strong>Reference Files:</strong>
+                        <ul style={{ margin: '5px 0 0 0', paddingLeft: '20px' }}>
+                            {item.attachedFiles.map((f, i) => (
+                                <li key={i}>
+                                    <a href={f.fileData || f.fileUrl} download={f.fileData ? f.fileName : undefined} target={f.fileData ? "_self" : "_blank"} rel="noreferrer" style={{ color: '#1890ff' }}>
+                                        {f.fileName || f.title}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                      </div>
                     )}
-                    <div style={{ backgroundColor: '#f9f9f9', padding: '15px', marginTop: '15px', border: '1px solid #e8e8e8', borderRadius: '4px' }}>
-                      <h5 style={{ margin: '0 0 10px 0' }}>Your Submission</h5>
+
+                    <div style={{ backgroundColor: '#fff', padding: '15px', marginTop: '20px', border: '1px solid #d9d9d9', borderRadius: '6px' }}>
+                      <h5 style={{ margin: '0 0 10px 0', fontSize: '15px' }}>Your Submission Record</h5>
+                      
                       {mySubmission ? (
                         <div>
                           {mySubmission.cheatingFlag ? (
-                             <p style={{ color: 'red', fontWeight: 'bold', margin: '0 0 5px 0' }}>Flagged: Cheating (Exited Full Screen)</p>
+                             <p style={{ color: '#cf1322', background: '#fff1f0', padding: '8px', border: '1px solid #ffa39e', borderRadius: '4px', fontWeight: 'bold', margin: '0 0 10px 0' }}>Flagged: Cheating (Exited Full Screen)</p>
                           ) : (
-                             <p style={{ margin: '0 0 5px 0' }}><strong>Status:</strong> {new Date(mySubmission.submittedAt) > new Date(item.deadline) ? <span style={{color:'orange'}}>Turned in Late</span> : <span style={{color:'green'}}>Turned In</span>}</p>
+                             <p style={{ margin: '0 0 8px 0' }}><strong>Status:</strong> {new Date(mySubmission.submittedAt) > new Date(item.deadline) ? <span style={{color:'orange', fontWeight: 'bold'}}>Turned in Late</span> : <span style={{color:'green', fontWeight: 'bold'}}>Turned In Successfully</span>}</p>
                           )}
-                          <p style={{ margin: '0 0 5px 0' }}><strong>Grade:</strong> <span style={{ fontWeight: 'bold' }}>{mySubmission.grade !== null && mySubmission.grade !== undefined ? `${mySubmission.grade} / ${item.maxGrade}` : 'Pending Evaluation'}</span></p>
-                          {mySubmission.feedback && <p style={{ margin: '5px 0', fontStyle: 'italic', background: '#e6f7ff', padding: '8px', borderLeft: '3px solid #1890ff' }}>Teacher Feedback: {mySubmission.feedback}</p>}
+                          <p style={{ margin: '0 0 8px 0', fontSize: '16px' }}><strong>Grade:</strong> <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{mySubmission.grade !== null && mySubmission.grade !== undefined ? `${mySubmission.grade} / ${item.maxGrade}` : 'Pending Evaluation'}</span></p>
+                          
+                          {mySubmission.feedback && <div style={{ margin: '10px 0', background: '#e6f7ff', padding: '12px', borderLeft: '4px solid #1890ff', borderRadius: '4px' }}><strong>Teacher Feedback:</strong> <br/>{mySubmission.feedback}</div>}
                           
                           {!isQuiz && (
-                            <>
-                              {mySubmission.fileUrl && <a href={mySubmission.fileUrl} target="_blank" rel="noreferrer" style={{ display: 'block', margin: '5px 0' }}>View Submitted Link</a>}
-                              {mySubmission.fileName && <a href={mySubmission.fileData} download={mySubmission.fileName} style={{ display: 'block', margin: '5px 0' }}>Download Submitted File ({mySubmission.fileName})</a>}
-                            </>
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                              {mySubmission.fileUrl && <a href={mySubmission.fileUrl} target="_blank" rel="noreferrer" style={{ background: '#f0f5ff', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', border: '1px solid #adc6ff' }}>View Cloud Link</a>}
+                              {mySubmission.fileName && <a href={mySubmission.fileData} download={mySubmission.fileName} style={{ background: '#f0f5ff', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', border: '1px solid #adc6ff' }}>Download File: {mySubmission.fileName}</a>}
+                            </div>
                           )}
                         </div>
-                      ) : <p style={{ color: isPastDeadline ? 'red' : 'black', margin: '0 0 10px 0' }}>{isPastDeadline ? `Missing (Overdue by ${getOverdueText(item.deadline)})` : 'Not Submitted'}</p>}
+                      ) : <p style={{ color: isPastDeadline ? 'red' : 'gray', margin: '0 0 10px 0', fontWeight: 'bold' }}>{isPastDeadline ? `Missing (Overdue)` : 'Not Submitted Yet'}</p>}
                       
                       {!isStrictlyClosed && !mySubmission && (
                         <button 
                           onClick={() => isQuiz ? startQuizFullscreen(item) : openSubmitModal(item._id)} 
-                          style={{ marginTop: '10px', padding: '8px 16px', cursor: 'pointer', background: isQuiz ? '#722ed1' : '#1890ff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold' }}
+                          style={{ marginTop: '15px', padding: '10px 20px', cursor: 'pointer', background: isQuiz ? '#722ed1' : '#1890ff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '15px' }}
                         >
                           {isQuiz ? "Take Quiz" : "Submit Work"}
                         </button>
                       )}
 
                       {!isStrictlyClosed && mySubmission && !isQuiz && (
-                         <button onClick={() => openSubmitModal(item._id)} style={{ marginTop: '10px', padding: '8px 16px', cursor: 'pointer' }}>Update Submission</button>
+                         <button onClick={() => openSubmitModal(item._id)} style={{ marginTop: '15px', padding: '8px 16px', cursor: 'pointer', background: '#fff', border: '1px solid #d9d9d9', borderRadius: '4px', fontWeight: 'bold' }}>Update Submission</button>
                       )}
 
-                      {isStrictlyClosed && !mySubmission && <p style={{ color: 'red', margin: '10px 0 0 0', fontWeight: 'bold' }}>Submissions are closed.</p>}
+                      {isStrictlyClosed && !mySubmission && <p style={{ color: 'red', margin: '15px 0 0 0', fontWeight: 'bold', padding: '10px', background: '#fff1f0', border: '1px solid #ffa39e', borderRadius: '4px', display: 'inline-block' }}>Submissions are closed.</p>}
                     </div>
                   </div>
                 );
               })
-            ) : <p>No assignments or quizzes yet.</p>}
+            ) : <p>No assignments or quizzes have been posted yet.</p>}
           </div>
         )}
       </div>

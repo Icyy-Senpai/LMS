@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { message } from 'antd';
 import AssignmentBuilder from './AssignmentBuilder';
 import GradingSection from './GradingSection';
 import api from '../../api';
@@ -7,24 +8,33 @@ export default function CourseWorkspace({ course, onBack }) {
   const [courseContent, setCourseContent] = useState(null);
   const [courseAssignments, setCourseAssignments] = useState([]);
   const [loadingContent, setLoadingContent] = useState(false);
-  
+
   const [annTitle, setAnnTitle] = useState('');
   const [annContent, setAnnContent] = useState('');
+
   const [vidTitle, setVidTitle] = useState('');
   const [vidUrl, setVidUrl] = useState('');
+
   const [matTitle, setMatTitle] = useState('');
   const [matUrl, setMatUrl] = useState('');
+  const [matFile, setMatFile] = useState(null);
+
+  const fetchCourseData = async () => {
+    try {
+      const [contentRes, assRes] = await Promise.all([
+        api.get(`/instructor/course/${course.code}`),
+        api.get(`/assignments/${course.code}`)
+      ]);
+      if (contentRes.data.success) setCourseContent(contentRes.data.content);
+      if (assRes.data.success) setCourseAssignments(assRes.data.assignments);
+    } catch (err) {
+      message.error('Failed to sync workspace data');
+    }
+  };
 
   useEffect(() => {
     setLoadingContent(true);
-    Promise.all([
-      api.get(`/instructor/course/${course.code}`),
-      api.get(`/assignments/${course.code}`)
-    ]).then(([contentRes, assRes]) => {
-      if (contentRes.data.success) setCourseContent(contentRes.data.content);
-      if (assRes.data.success) setCourseAssignments(assRes.data.assignments);
-    }).catch(() => alert('Failed to load workspace data'))
-      .finally(() => setLoadingContent(false));
+    fetchCourseData().finally(() => setLoadingContent(false));
   }, [course.code]);
 
   const updateCourseData = async (updatedFields, callback) => {
@@ -32,12 +42,12 @@ export default function CourseWorkspace({ course, onBack }) {
       const payload = { courseCode: course.code, ...courseContent, ...updatedFields };
       const response = await api.post('/instructor/course/update', payload);
       if (response.data.success) {
-        alert('Update successful!');
+        message.success('Update successful!');
         setCourseContent(response.data.content);
         if (callback) callback();
       }
     } catch (err) {
-      alert('Failed to update data.');
+      message.error('Failed to update data.');
     }
   };
 
@@ -63,10 +73,48 @@ export default function CourseWorkspace({ course, onBack }) {
     updateCourseData({ videos: courseContent.videos.filter((_, i) => i !== index) });
   };
 
-  const handleAddMaterial = (e) => {
+  // Helper to convert file to Base64
+  const getBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  const handleAddMaterial = async (e) => {
     e.preventDefault();
-    const newMaterials = [...(courseContent.materials || []), { title: matTitle, fileUrl: matUrl }];
-    updateCourseData({ materials: newMaterials }, () => { setMatTitle(''); setMatUrl(''); });
+    if (!matUrl && !matFile) {
+        return message.warning("Please provide either an external URL or upload a file.");
+    }
+    
+    // Prevent massive files from crashing MongoDB document limit
+    if (matFile && matFile.size / 1024 / 1024 > 5) {
+        return message.error("File must be smaller than 5MB.");
+    }
+
+    let fileData = '';
+    let fileName = '';
+
+    if (matFile) {
+        fileData = await getBase64(matFile);
+        fileName = matFile.name;
+    }
+
+    const newMaterials = [...(courseContent.materials || []), { 
+        title: matTitle, 
+        fileUrl: matUrl,
+        fileData,
+        fileName 
+    }];
+
+    updateCourseData({ materials: newMaterials }, () => { 
+        setMatTitle(''); 
+        setMatUrl(''); 
+        setMatFile(null);
+        document.getElementById('matFileInput').value = ''; // Reset file input
+    });
   };
 
   const handleDeleteMaterial = (index) => {
@@ -74,69 +122,102 @@ export default function CourseWorkspace({ course, onBack }) {
     updateCourseData({ materials: courseContent.materials.filter((_, i) => i !== index) });
   };
 
-  if (loadingContent) return <div><button onClick={onBack}>Back</button><p>Loading course data...</p></div>;
-  if (!courseContent) return <div><button onClick={onBack}>Back</button><p>Error loading content.</p></div>;
+  if (loadingContent) return <div style={{ padding: '20px' }}><button onClick={onBack}>Back</button><p>Loading course data...</p></div>;
+  if (!courseContent) return <div style={{ padding: '20px' }}><button onClick={onBack}>Back</button><p>Error loading content.</p></div>;
 
   return (
     <div>
-      <button onClick={onBack}>Back to Course List</button>
-      <h3>Workspace: {course.code} - {course.name}</h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+      <button onClick={onBack} style={{ marginBottom: '15px', padding: '5px 10px', cursor: 'pointer' }}>Back to Course List</button>
+      <h3 style={{ marginBottom: '20px' }}>Workspace: {course.code} - {course.name}</h3>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
-        <div style={{ border: '1px solid gray', padding: '15px' }}>
+        {/* Announcements Section */}
+        <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>
           <h4>Announcements</h4>
           <form onSubmit={handleAddAnnouncement} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
-            <input type="text" placeholder="Title" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} required />
-            <input type="text" placeholder="Details" value={annContent} onChange={(e) => setAnnContent(e.target.value)} required />
-            <button type="submit">Post</button>
+            <input type="text" placeholder="Title" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} required style={{ padding: '6px' }} />
+            <input type="text" placeholder="Details" value={annContent} onChange={(e) => setAnnContent(e.target.value)} required style={{ padding: '6px', flex: 1 }} />
+            <button type="submit" style={{ padding: '6px 12px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Post</button>
           </form>
-          <ul>
+          <ul style={{ paddingLeft: '20px' }}>
             {courseContent.announcements?.map((ann, idx) => (
               <li key={idx} style={{ marginBottom: '10px' }}>
                 <strong>{ann.title}</strong> - {ann.content} <em>({new Date(ann.date).toLocaleDateString()})</em>
-                <button onClick={() => handleDeleteAnnouncement(idx)} style={{ marginLeft: '10px', color: 'red' }}>Delete</button>
+                <button onClick={() => handleDeleteAnnouncement(idx)} style={{ marginLeft: '10px', color: 'red', cursor: 'pointer', border: 'none', background: 'transparent' }}>Delete</button>
               </li>
             ))}
           </ul>
         </div>
 
-        <div style={{ border: '1px solid gray', padding: '15px' }}>
+        {/* Video Lessons Section */}
+        <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>
           <h4>Video Lessons</h4>
           <form onSubmit={handleAddVideo} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
-            <input type="text" placeholder="Video Title" value={vidTitle} onChange={(e) => setVidTitle(e.target.value)} required />
-            <input type="text" placeholder="Video URL" value={vidUrl} onChange={(e) => setVidUrl(e.target.value)} required />
-            <button type="submit">Add Video</button>
+            <input type="text" placeholder="Video Title" value={vidTitle} onChange={(e) => setVidTitle(e.target.value)} required style={{ padding: '6px' }} />
+            <input type="text" placeholder="Video URL" value={vidUrl} onChange={(e) => setVidUrl(e.target.value)} required style={{ padding: '6px', flex: 1 }} />
+            <button type="submit" style={{ padding: '6px 12px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add Video</button>
           </form>
-          <ul>
+          <ul style={{ paddingLeft: '20px' }}>
             {courseContent.videos?.map((vid, idx) => (
               <li key={idx} style={{ marginBottom: '10px' }}>
-                <a href={vid.url} target="_blank" rel="noreferrer">{vid.title}</a>
-                <button onClick={() => handleDeleteVideo(idx)} style={{ marginLeft: '10px', color: 'red' }}>Delete</button>
+                <a href={vid.url} target="_blank" rel="noreferrer" style={{ color: '#1890ff', fontWeight: 'bold' }}>{vid.title}</a>
+                <button onClick={() => handleDeleteVideo(idx)} style={{ marginLeft: '10px', color: 'red', cursor: 'pointer', border: 'none', background: 'transparent' }}>Delete</button>
               </li>
             ))}
           </ul>
         </div>
 
-        <div style={{ border: '1px solid gray', padding: '15px' }}>
+        {/* Reading Materials Section */}
+        <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>
           <h4>Reading Materials</h4>
-          <form onSubmit={handleAddMaterial} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
-            <input type="text" placeholder="Material Title" value={matTitle} onChange={(e) => setMatTitle(e.target.value)} required />
-            <input type="text" placeholder="File URL" value={matUrl} onChange={(e) => setMatUrl(e.target.value)} required />
-            <button type="submit">Add Material</button>
+          <p style={{ color: 'gray', fontSize: '12px', margin: '0 0 10px 0' }}>Provide an external link OR upload a file document (PDF, DOCX, PPTX).</p>
+          
+          <form onSubmit={handleAddMaterial} style={{ marginBottom: '15px', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', background: '#fafafa', padding: '10px', borderRadius: '6px' }}>
+            <input type="text" placeholder="Material Title" value={matTitle} onChange={(e) => setMatTitle(e.target.value)} required style={{ padding: '6px' }} />
+            
+            <div style={{ borderLeft: '2px solid #e8e8e8', paddingLeft: '10px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input type="url" placeholder="External URL" value={matUrl} onChange={(e) => setMatUrl(e.target.value)} style={{ padding: '6px' }} />
+                <span style={{ fontWeight: 'bold', color: '#8c8c8c', fontSize: '12px' }}>OR</span>
+                <input id="matFileInput" type="file" onChange={(e) => setMatFile(e.target.files[0])} accept=".pdf,.docx,.pptx" />
+            </div>
+
+            <button type="submit" style={{ padding: '6px 12px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add Material</button>
           </form>
-          <ul>
+          
+          <ul style={{ paddingLeft: '20px' }}>
             {courseContent.materials?.map((mat, idx) => (
               <li key={idx} style={{ marginBottom: '10px' }}>
-                <a href={mat.fileUrl} target="_blank" rel="noreferrer">{mat.title}</a>
-                <button onClick={() => handleDeleteMaterial(idx)} style={{ marginLeft: '10px', color: 'red' }}>Delete</button>
+                <a 
+                    href={mat.fileData || mat.fileUrl} 
+                    download={mat.fileData ? mat.fileName : undefined} 
+                    target={mat.fileData ? "_self" : "_blank"} 
+                    rel="noreferrer" 
+                    style={{ color: '#1890ff', fontWeight: 'bold', textDecoration: 'none' }}
+                >
+                    {mat.title} {mat.fileName ? `(File: ${mat.fileName})` : '(Link)'}
+                </a>
+                <button onClick={() => handleDeleteMaterial(idx)} style={{ marginLeft: '15px', color: 'red', cursor: 'pointer', border: 'none', background: 'transparent' }}>Delete</button>
               </li>
             ))}
           </ul>
         </div>
 
-        <AssignmentBuilder courseCode={course.code} assignments={courseAssignments} setAssignments={setCourseAssignments} />
+        {/* Assignment & Grading Builders */}
+        <AssignmentBuilder 
+          courseCode={course.code} 
+          assignments={courseAssignments} 
+          setAssignments={setCourseAssignments} 
+          onDataChange={fetchCourseData} 
+        />
         
-        <GradingSection assignments={courseAssignments} setAssignments={setCourseAssignments} />
+        <GradingSection 
+          assignments={courseAssignments} 
+          setAssignments={setCourseAssignments} 
+          enrolledStudents={courseContent.enrolledStudents || []}
+          onDataChange={fetchCourseData} 
+        />
+
       </div>
     </div>
   );

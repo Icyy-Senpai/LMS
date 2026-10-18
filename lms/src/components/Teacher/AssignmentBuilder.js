@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-// FIX: Added Row, Col, and Typography to the imports
 import { Button, Modal, Upload, Form, InputNumber, Card, Input as AntInput, Space, message, Spin, Select, Row, Col, Typography } from 'antd';
 import { UploadOutlined, RobotOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from '../../api';
 
 const { TextArea } = AntInput;
-// FIX: Destructured Title and Text from Typography
 const { Title, Text } = Typography;
 
 // ==========================================
@@ -175,15 +173,41 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
   const [assDeadline, setAssDeadline] = useState('');
   const [assAutoClose, setAssAutoClose] = useState(false);
   const [assMaxGrade, setAssMaxGrade] = useState(100);
-  const [assFileName, setAssFileName] = useState('');
-  const [assFileUrl, setAssFileUrl] = useState('');
+  const [fileList, setFileList] = useState([]);
+
+  const getBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
 
   const handleCreateAssignment = async (e) => {
     e.preventDefault();
+    
+    const attachedFiles = [];
+    for (let file of fileList) {
+        // FIX: Extract the actual File object regardless of how Ant Design wrapped it
+        const actualFile = file.originFileObj || file; 
+        
+        const base64Data = await getBase64(actualFile);
+        attachedFiles.push({
+            fileName: actualFile.name,
+            fileData: base64Data,
+            contentType: actualFile.type || 'application/octet-stream'
+        });
+    }
+
     const payload = {
-      courseCode, title: assTitle, instructions: assInstructions, deadline: assDeadline,
-      autoClose: assAutoClose, maxGrade: Number(assMaxGrade),
-      attachedFiles: assFileUrl ? [{ title: assFileName || 'Attached File', fileUrl: assFileUrl }] : []
+      courseCode, 
+      title: assTitle, 
+      instructions: assInstructions, 
+      deadline: assDeadline,
+      autoClose: assAutoClose, 
+      maxGrade: Number(assMaxGrade),
+      attachedFiles
     };
 
     try {
@@ -192,10 +216,12 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
         message.success('Assignment Created!');
         setAssignments([response.data.assignment, ...assignments]);
         setAssTitle(''); setAssInstructions(''); setAssDeadline(''); 
-        setAssAutoClose(false); setAssMaxGrade(100); setAssFileName(''); setAssFileUrl('');
+        setAssAutoClose(false); setAssMaxGrade(100); setFileList([]);
         if (typeof onDataChange === 'function') onDataChange();
       }
-    } catch (err) { alert('Failed to create assignment'); }
+    } catch (err) { 
+      message.error('Failed to create assignment'); 
+    }
   };
 
   const handleDeleteAssignment = async (assignmentId) => {
@@ -207,12 +233,33 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
         setAssignments(assignments.filter(a => a._id !== assignmentId));
         if (typeof onDataChange === 'function') onDataChange();
       }
-    } catch (err) { alert('Failed to delete assignment.'); }
+    } catch (err) { 
+      message.error('Failed to delete assignment.'); 
+    }
   };
 
   const handleAIQuizSaved = (newQuizAssignment) => {
     setAssignments([newQuizAssignment, ...assignments]);
     if (typeof onDataChange === 'function') onDataChange();
+  };
+
+  const uploadProps = {
+    onRemove: (file) => {
+      setFileList(prev => prev.filter(item => item.uid !== file.uid));
+    },
+    beforeUpload: (file) => {
+      const isLt5M = file.size / 1024 / 1024 < 5;
+      if (!isLt5M) {
+        message.error('Files must be smaller than 5MB!');
+        return Upload.LIST_IGNORE;
+      }
+      // Store the raw File object directly
+      setFileList(prev => [...prev, file]);
+      return false; // Prevent auto-uploading to a URL
+    },
+    fileList,
+    multiple: true,
+    accept: '.pdf,.docx,.pptx'
   };
 
   return (
@@ -230,11 +277,14 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
             <label style={{ flex: 1 }}>Max Grade: <br/><input type="number" value={assMaxGrade} onChange={(e) => setAssMaxGrade(e.target.value)} required style={{ padding: '8px', width: '100%' }} /></label>
         </div>
         <label><input type="checkbox" checked={assAutoClose} onChange={(e) => setAssAutoClose(e.target.checked)} /> Automatically close submissions past deadline</label>
-        <fieldset style={{ border: '1px dashed #ccc', padding: '10px', marginTop: '10px' }}>
-          <legend>Attach Resource File (Optional)</legend>
-          <input type="text" placeholder="File Name (e.g., Template.docx)" value={assFileName} onChange={(e) => setAssFileName(e.target.value)} style={{ width: '100%', marginBottom: '5px', padding: '6px' }} />
-          <input type="text" placeholder="File URL" value={assFileUrl} onChange={(e) => setAssFileUrl(e.target.value)} style={{ width: '100%', padding: '6px' }} />
+        
+        <fieldset style={{ border: '1px dashed #ccc', padding: '15px', marginTop: '10px', background: '#fff' }}>
+          <legend style={{ padding: '0 5px' }}>Attach Resource Files (PDF, DOCX, PPTX)</legend>
+          <Upload {...uploadProps}>
+            <Button icon={<UploadOutlined />}>Select Files to Attach</Button>
+          </Upload>
         </fieldset>
+
         <button type="submit" style={{ padding: '10px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}>Create Manual Assignment</button>
       </form>
 

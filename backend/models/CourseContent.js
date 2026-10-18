@@ -12,7 +12,12 @@ const quizSchema = new mongoose.Schema({
 const contentSchema = new mongoose.Schema({
   courseCode: { type: String, required: true, unique: true },
   videos: [{ title: { type: String }, url: { type: String } }],
-  materials: [{ title: { type: String }, fileUrl: { type: String } }],
+  materials: [{ 
+    title: { type: String }, 
+    fileUrl: { type: String },  // Keeps support for external links
+    fileName: { type: String }, // Stores the uploaded file's name
+    fileData: { type: String }  // Stores the Base64 file string
+  }],
   quizzes: [quizSchema],
   announcements: [{ title: String, content: String, date: { type: Date, default: Date.now } }],
   enrolledStudents: [{

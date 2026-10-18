@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, 
-  Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Table, Space, Select, Divider 
-} from 'antd';
-import { 
-  UserOutlined, DashboardOutlined, FileDoneOutlined, LogoutOutlined, 
-  SettingOutlined, AppstoreOutlined, PlusOutlined, 
-  BellOutlined, CommentOutlined, EditOutlined
-} from '@ant-design/icons';
+import { Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Table, Space, Select, Divider } from 'antd';
+import { UserOutlined, DashboardOutlined, FileDoneOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, MailOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import CourseView from './CourseView';
-import Forum from './Forum';
+import Network from '../Shared/Network';
+import Forum from '../Shared/Forum';
 import api from '../../api';
-
-// Import your logo directly from the src folder
 import logoImage from '../../logo.png';
 
 const { Header, Sider, Content } = Layout;
@@ -22,36 +14,36 @@ const { Title, Text, Paragraph } = Typography;
 export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [forumCourseCode, setForumCourseCode] = useState(null); 
+
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
-  
-  // New State for Available Courses Modal
   const [isCatalogModalVisible, setIsCatalogModalVisible] = useState(false);
-  
   const [avatarUrl, setAvatarUrl] = useState(user.photoUrl);
   const [collapsed, setCollapsed] = useState(true);
   
   const [allCourses, setAllCourses] = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
-  const [upcomingTasks, setUpcomingTasks] = useState([]);
   
+  const [upcomingTasks, setUpcomingTasks] = useState([]);
   const [taskCategory, setTaskCategory] = useState('upcoming');
-
   const [activeCourseModal, setActiveCourseModal] = useState(null);
   const [courseModalTasks, setCourseModalTasks] = useState([]);
-
+  
   const [calendarDate, setCalendarDate] = useState(() => dayjs());
   const [selectedDateFilter, setSelectedDateFilter] = useState('');
   
   const [leaderboard, setLeaderboard] = useState([]);
   const [leaderboardCourse, setLeaderboardCourse] = useState('all');
-  const [form] = Form.useForm();
+  
+  const [notifications, setNotifications] = useState([]);
+  const [mailboxItems, setMailboxItems] = useState([]);
 
+  const [form] = Form.useForm();
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [bioText, setBioText] = useState(user.bio || '');
 
   const userYearLevel = user.yearLevel ? `${user.yearLevel}rd Year` : '1st Year';
 
-  // Address Bar History Update
   useEffect(() => {
     if (selectedCourse) {
       window.history.pushState(null, '', `/course/${selectedCourse.code}`);
@@ -62,22 +54,17 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     }
   }, [activeTab, selectedCourse]);
 
-  // 1. Fetch Courses
   useEffect(() => {
     const fetchCourses = async () => {
       try {
         const response = await api.get('/courses');
         if (response.data.success) setAllCourses(response.data.courses);
-      } catch (error) {
-        message.error('Failed to load course catalog');
-      } finally {
-        setLoadingCourses(false);
-      }
+      } catch (error) { message.error('Failed to load course catalog'); } 
+      finally { setLoadingCourses(false); }
     };
     fetchCourses();
   }, []);
 
-  // 2. Fetch Leaderboard
   useEffect(() => {
     if (activeTab === 'dashboard') {
       const courseParam = leaderboardCourse !== 'all' ? `&courseCode=${leaderboardCourse}` : '';
@@ -87,9 +74,19 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     }
   }, [activeTab, leaderboardCourse, user.schoolId]);
 
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await api.get(`/notifications/${user.schoolId}`);
+        if (res.data.success) setNotifications(res.data.notifications);
+      } catch(e) { console.error(e); }
+    };
+    fetchNotifications();
+  }, [user.schoolId, activeTab]);
+
   const enrolledWithProgress = allCourses.filter(course => 
-    (user.enrolledCourseSubjects && user.enrolledCourseSubjects.some(e => e.code === course.code)) || 
-    (user.enrolledCourses && user.enrolledCourses.some(e => e.code === course.code))
+     (user.enrolledCourseSubjects && user.enrolledCourseSubjects.some(e => e.code === course.code)) || 
+     (user.enrolledCourses && user.enrolledCourses.some(e => e.code === course.code))
   ).map(course => {
     const legacy = user.enrolledCourses?.find(e => e.code === course.code);
     const newE = user.enrolledCourseSubjects?.find(e => e.code === course.code);
@@ -98,11 +95,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
 
   const currentlyEnrolled = enrolledWithProgress.filter(c => c.progress < 100);
   const completedCourses = enrolledWithProgress.filter(c => c.progress >= 100);
-
-  // Filter available courses matching the student's department/targetProgram
-  const programAvailableCourses = allCourses.filter(c => 
-    c.targetProgram === user.department || c.department === user.department
-  );
+  const programAvailableCourses = allCourses.filter(c => c.targetProgram === user.department || c.department === user.department);
 
   const getOverdueText = (deadline) => {
     const ms = new Date() - new Date(deadline);
@@ -114,12 +107,13 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     return `${mins}m`;
   };
 
-  // 3. Fetch Upcoming Tasks
   useEffect(() => {
     if (currentlyEnrolled.length === 0) return;
-    
-    const fetchTasks = async () => {
+    const fetchTasksAndMailbox = async () => {
       let tasks = [];
+      let alerts = [];
+      const now = new Date();
+
       for (let course of currentlyEnrolled) {
         try {
           const [contentRes, assRes] = await Promise.all([
@@ -127,38 +121,57 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
             api.get(`/assignments/${course.code}`)
           ]);
 
-          const dataContent = contentRes.data;
-          const dataAssignments = assRes.data;
-
-          if (dataContent.success && dataContent.content?.quizzes) {
-            dataContent.content.quizzes.forEach(q => tasks.push({
-              id: q._id, courseCode: course.code, courseName: course.name, type: 'Quiz', title: q.title, 
-              dateStr: 'Upcoming', rawDate: new Date(8640000000000000), isOverdue: false
-            }));
-          }
-
-          if (dataAssignments.success) {
-            dataAssignments.assignments.forEach(a => {
-              const hasSubmitted = a.submissions?.some(s => s.studentUsername === user.schoolId);
-              if (!hasSubmitted) {
-                const dl = new Date(a.deadline);
-                const isOverdue = new Date() > dl;
-                const filterStr = dayjs(dl).format('YYYY-MM-DD');
-
-                tasks.push({
-                  id: a._id, courseCode: course.code, courseName: course.name, type: 'Assignment', title: a.title,
-                  dateStr: dayjs(dl).format('MMM D, h:mm A'), calendarFilter: filterStr,
-                  isOverdue, overdueString: isOverdue ? getOverdueText(dl) : '', rawDate: dl
+          if (contentRes.data.success && contentRes.data.content?.announcements) {
+            contentRes.data.content.announcements.forEach(ann => {
+              const annDate = new Date(ann.date);
+              if ((now - annDate) / (1000 * 60 * 60 * 24) <= 3) {
+                alerts.push({
+                  id: `ann-${Math.random()}`, type: 'Announcement', courseCode: course.code,
+                  title: `Announcement: ${ann.title}`, description: ann.content, date: annDate, isUrgent: false
                 });
               }
             });
           }
-        } catch (e) { console.error('Task fetch error'); }
+
+          if (assRes.data.success) {
+            assRes.data.assignments.forEach(ass => {
+              const hasSubmitted = ass.submissions?.some(s => s.studentUsername === user.schoolId);
+              const dl = new Date(ass.deadline);
+              const isOverdue = new Date() > dl;
+              const hoursLeft = (dl - now) / (1000 * 60 * 60);
+
+              if (!hasSubmitted) {
+                tasks.push({
+                  id: ass._id, courseCode: course.code, courseName: course.name, type: ass.type || 'Assignment', 
+                  title: ass.title, dateStr: dayjs(dl).format('MMM D, h:mm A'), calendarFilter: dayjs(dl).format('YYYY-MM-DD'),
+                  isOverdue, overdueString: isOverdue ? getOverdueText(dl) : '', rawDate: dl
+                });
+
+                if (hoursLeft > 0 && hoursLeft <= 24) {
+                  alerts.push({
+                    id: `due-${ass._id}`, type: 'Deadline', courseCode: course.code,
+                    title: `Upcoming Deadline: ${ass.title}`, description: `Due in ${Math.ceil(hoursLeft)} hours!`, date: dl, isUrgent: true
+                  });
+                }
+              }
+
+              const createdAt = new Date(parseInt(ass._id.substring(0, 8), 16) * 1000);
+              if ((now - createdAt) / (1000 * 60 * 60 * 24) <= 3) {
+                alerts.push({
+                  id: `new-${ass._id}`, type: `New ${ass.type || 'Assignment'}`, courseCode: course.code,
+                  title: `New ${ass.type || 'Assignment'} Posted`, description: ass.title, date: createdAt, isUrgent: false
+                });
+              }
+            });
+          }
+        } catch (e) {}
       }
       tasks.sort((a, b) => a.rawDate - b.rawDate);
+      alerts.sort((a, b) => b.date - a.date);
       setUpcomingTasks(tasks);
+      setMailboxItems(alerts);
     };
-    fetchTasks();
+    fetchTasksAndMailbox();
   }, [allCourses]);
 
   const handleProfileUpdate = async (values) => {
@@ -179,12 +192,8 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
         message.success("Bio updated successfully!");
         onUpdateProfile(response.data.user);
         setIsEditingBio(false);
-      } else {
-        message.error("Failed to update bio");
-      }
-    } catch (err) {
-      message.error("Server error updating bio");
-    }
+      } else { message.error("Failed to update bio"); }
+    } catch (err) { message.error("Server error updating bio"); }
   };
 
   const handleImageUpload = (info) => {
@@ -199,24 +208,13 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     const cellDateStr = value.format('YYYY-MM-DD');
     const isSelected = selectedDateFilter === cellDateStr;
     const isToday = cellDateStr === dayjs().format('YYYY-MM-DD');
-    
     const dayTodos = upcomingTasks.filter(todo => todo.calendarFilter === cellDateStr);
-    
     return (
       <div style={{ textAlign: 'center', fontSize: '11px', padding: '2px 0' }}>
-        <div style={{ 
-          display: 'inline-block', width: '22px', height: '22px', lineHeight: '22px', borderRadius: '50%', 
-          backgroundColor: isSelected ? '#1890ff' : 'transparent', color: isSelected ? '#fff' : 'inherit',
-          border: isToday && !isSelected ? '1px solid #1890ff' : '1px solid transparent',
-          fontWeight: isSelected || isToday ? 'bold' : 'normal', transition: 'all 0.2s'
-        }}>
+        <div style={{ display: 'inline-block', width: '22px', height: '22px', lineHeight: '22px', borderRadius: '50%', backgroundColor: isSelected ? '#1890ff' : 'transparent', color: isSelected ? '#fff' : 'inherit', border: isToday && !isSelected ? '1px solid #1890ff' : '1px solid transparent', fontWeight: isSelected || isToday ? 'bold' : 'normal', transition: 'all 0.2s' }}>
           {value.date()}
         </div>
-        {dayTodos.length > 0 && (
-          <div style={{ marginTop: -4 }}>
-            <Badge dot color={isSelected ? 'white' : 'red'} />
-          </div>
-        )}
+        {dayTodos.length > 0 && <div style={{ marginTop: -4 }}><Badge dot color={isSelected ? 'white' : 'red'} /></div>}
       </div>
     );
   };
@@ -234,11 +232,8 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
   const filteredTasks = selectedDateFilter ? upcomingTasks.filter(t => t.calendarFilter === selectedDateFilter) : upcomingTasks;
   const upcomingOnlyTasks = filteredTasks.filter(t => !t.isOverdue);
   const overdueOnlyTasks = filteredTasks.filter(t => t.isOverdue);
-
   const overdueCoursesMap = overdueOnlyTasks.reduce((acc, task) => {
-    if (!acc[task.courseCode]) {
-      acc[task.courseCode] = { code: task.courseCode, name: task.courseName, tasks: [] };
-    }
+    if (!acc[task.courseCode]) { acc[task.courseCode] = { code: task.courseCode, name: task.courseName, tasks: [] }; }
     acc[task.courseCode].tasks.push(task);
     return acc;
   }, {});
@@ -250,7 +245,11 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     setCourseModalTasks((taskCategory === 'upcoming' ? upcomingOnlyTasks : overdueOnlyTasks).filter(t => t.courseCode === courseCode));
   };
 
-  // Popover content now includes the View All Available Courses button
+  const markNotificationsAsRead = async () => {
+    await api.post('/notifications/read', { userId: user.schoolId });
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  };
+
   const catalogPopoverContent = (
     <div style={{ width: 280 }}>
       <Tabs defaultActiveKey="enrolled">
@@ -274,9 +273,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
         </Tabs.TabPane>
       </Tabs>
       <Divider style={{ margin: '12px 0 8px 0' }} />
-      <Button type="dashed" block onClick={() => setIsCatalogModalVisible(true)}>
-        View All Available Courses
-      </Button>
+      <Button type="dashed" block onClick={() => setIsCatalogModalVisible(true)}>View All Available Courses</Button>
     </div>
   );
 
@@ -288,24 +285,16 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
       </Popover>
     )},
     { key: 'grades', icon: <FileDoneOutlined />, label: 'Grades & Certificates' },
+    { key: 'network', icon: <UserOutlined />, label: 'Friends & Chat' },
+    { key: 'forum', icon: <CommentOutlined />, label: 'Reddit Forums' },
     { type: 'divider' },
-    { key: 'forum', icon: <CommentOutlined />, label: 'Forum' },
-    { type: 'divider' },
-    { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
+    { key: 'profile', icon: <SettingOutlined />, label: 'Profile' },
   ];
 
   if (loadingCourses) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><Spin size="large" /></div>;
 
-  const getHeaderTitle = () => {
-    if (selectedCourse) return selectedCourse.code;
-    if (activeTab === 'profile') return `${user.firstName} ${user.lastName} | Profile`;
-    return activeTab.replace('-', ' ');
-  };
-
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      
-      {/* Settings Modal */}
       <Modal title="Student Settings" open={isProfileModalVisible} onCancel={() => setIsProfileModalVisible(false)} footer={null} destroyOnClose width={800}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
           <Upload name="avatar" listType="picture-circle" showUploadList={false} customRequest={({ onSuccess }) => setTimeout(() => onSuccess("ok"), 0)} onChange={handleImageUpload}>
@@ -322,88 +311,41 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
         </Form>
       </Modal>
 
-      {/* Course Tasks Modal */}
-      <Modal 
-        title={activeCourseModal ? `${activeCourseModal.code}: ${activeCourseModal.name}` : "Course Tasks"} 
-        open={Boolean(activeCourseModal)} 
-        onCancel={() => setActiveCourseModal(null)} 
-        footer={[<Button key="close" type="primary" onClick={() => setActiveCourseModal(null)}>Close</Button>]}
-      >
-        <List 
-          size="small"
-          dataSource={courseModalTasks}
-          locale={{ emptyText: 'No tasks found for this course.' }}
-          renderItem={item => (
-            <List.Item>
-              <List.Item.Meta 
-                title={item.title} 
-                description={
-                  <Space>
-                    <Tag color={item.type === 'Quiz' ? 'purple' : 'geekblue'}>{item.type}</Tag>
-                    <Text type={item.isOverdue ? 'danger' : 'secondary'} strong={item.isOverdue}>
-                      {item.isOverdue ? `Overdue by ${item.overdueString}` : `Due: ${item.dateStr}`}
-                    </Text>
-                  </Space>
-                }
-              />
-            </List.Item>
-          )}
-        />
+      <Modal title={activeCourseModal ? `${activeCourseModal.code}: ${activeCourseModal.name}` : "Course Tasks"} open={Boolean(activeCourseModal)} onCancel={() => setActiveCourseModal(null)} footer={[<Button key="close" type="primary" onClick={() => setActiveCourseModal(null)}>Close</Button>]}>
+        <List size="small" dataSource={courseModalTasks} locale={{ emptyText: 'No tasks found for this course.' }} renderItem={item => (
+          <List.Item>
+            <List.Item.Meta title={item.title} description={<Space><Tag color={item.type === 'Quiz' ? 'purple' : 'geekblue'}>{item.type}</Tag><Text type={item.isOverdue ? 'danger' : 'secondary'} strong={item.isOverdue}>{item.isOverdue ? `Overdue by ${item.overdueString}` : `Due: ${item.dateStr}`}</Text></Space>} />
+          </List.Item>
+        )} />
         {activeCourseModal && (
           <div style={{ marginTop: 16, textAlign: 'right' }}>
-            <Button type="primary" onClick={() => { setSelectedCourse(activeCourseModal); setActiveCourseModal(null); }}>
-              Open Course Workspace
-            </Button>
+            <Button type="primary" onClick={() => { setSelectedCourse(activeCourseModal); setActiveCourseModal(null); }}>Open Course Workspace</Button>
           </div>
         )}
       </Modal>
 
-      {/* All Available Courses Modal */}
-      <Modal 
-        title={`Available Courses: ${user.department}`} 
-        open={isCatalogModalVisible} 
-        onCancel={() => setIsCatalogModalVisible(false)} 
-        footer={[<Button key="close" type="primary" onClick={() => setIsCatalogModalVisible(false)}>Close</Button>]}
-        width={750}
-      >
-        <List
-          grid={{ gutter: 16, xs: 1, sm: 2 }}
-          dataSource={programAvailableCourses}
-          locale={{ emptyText: `No available courses found for ${user.department}.` }}
-          renderItem={course => (
-            <List.Item>
-              <Card size="small" hoverable>
-                <div style={{ height: 40, backgroundColor: course.color || '#1890ff', margin: '-12px -12px 12px -12px', borderRadius: '8px 8px 0 0' }} />
-                <Text strong>{course.code}</Text>
-                <Title level={5} style={{ margin: '4px 0', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {course.name}
-                </Title>
-                <Text type="secondary" style={{ fontSize: '12px' }}>Prof. {course.instructor || 'TBA'}</Text>
-              </Card>
-            </List.Item>
-          )}
-        />
+      <Modal title={`Available Courses: ${user.department}`} open={isCatalogModalVisible} onCancel={() => setIsCatalogModalVisible(false)} footer={[<Button key="close" type="primary" onClick={() => setIsCatalogModalVisible(false)}>Close</Button>]} width={750}>
+        <List grid={{ gutter: 16, xs: 1, sm: 2 }} dataSource={programAvailableCourses} locale={{ emptyText: `No available courses found for ${user.department}.` }} renderItem={course => (
+          <List.Item>
+            <Card size="small" hoverable>
+              <div style={{ height: 40, backgroundColor: course.color || '#1890ff', margin: '-12px -12px 12px -12px', borderRadius: '8px 8px 0 0' }} />
+              <Text strong>{course.code}</Text>
+              <Title level={5} style={{ margin: '4px 0', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</Title>
+              <Text type="secondary" style={{ fontSize: '12px' }}>Prof. {course.instructor || 'TBA'}</Text>
+            </Card>
+          </List.Item>
+        )} />
       </Modal>
 
-      {/* Sidebar */}
       <Sider theme="light" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null} style={{ borderRight: '1px solid #f0f0f0' }}>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          
-          <div 
-            onClick={() => { setActiveTab('dashboard'); setSelectedCourse(null); }}
-            style={{ 
-              height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              borderBottom: '1px solid #f0f0f0', cursor: 'pointer', transition: 'background-color 0.3s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fafafa'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
+          <div onClick={() => { setActiveTab('dashboard'); setSelectedCourse(null); }} style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', transition: 'background-color 0.3s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fafafa'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
             {collapsed ? (
               <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} />
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} />
-                <Title level={4} style={{ margin: 0, color: '#1890ff' }}>eLMS</Title>
+                <Title level={4} style={{ margin: '0 0 0 5px', color: '#1890ff' }}>eLMS</Title>
               </div>
             )}
           </div>
@@ -415,7 +357,6 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
               items={menuItems} style={{ borderRight: 0, marginTop: 16 }} 
             />
           </div>
-
           <div style={{ padding: collapsed ? '16px 8px' : '16px', borderTop: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}>
             {collapsed ? (
               <Avatar src={user.photoUrl} style={{ backgroundColor: '#1890ff' }} icon={!user.photoUrl && <UserOutlined />} />
@@ -438,17 +379,78 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
         </div>
       </Sider>
 
-      {/* Main Layout */}
       <Layout>
         <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,21,41,.08)', zIndex: 1 }}>
-          <Title level={4} style={{ margin: 0, textTransform: 'none' }}>{getHeaderTitle()}</Title>
-          <Popover placement="bottomRight" title="Notifications" content={<div style={{ padding: '16px 0' }}><Text type="secondary">No new notifications.</Text></div>} trigger="click">
-            <Badge count={(user.notifications || []).filter(n => !n.isRead).length} color="red" style={{ cursor: 'pointer' }}>
-              <BellOutlined style={{ fontSize: 22, color: '#8c8c8c' }} />
-            </Badge>
-          </Popover>
-        </Header>
+          <Title level={4} style={{ margin: 0, textTransform: 'none' }}>{selectedCourse ? selectedCourse.code : activeTab.replace('-', ' ')}</Title>
+          <Space size="middle" align="center">
+            
+            {/* Mailbox Course Alerts Popover */}
+            <Popover 
+              placement="bottomRight" 
+              title="Mailbox: Course Alerts" 
+              trigger="click"
+              content={
+                <div style={{ width: 350, maxHeight: '400px', overflowY: 'auto' }}>
+                  {mailboxItems.length > 0 ? (
+                    <List
+                      itemLayout="horizontal"
+                      dataSource={mailboxItems}
+                      renderItem={item => (
+                        <List.Item style={{ padding: '10px', background: item.isUrgent ? '#fff1f0' : '#f0f5ff', borderBottom: '1px solid #f0f0f0' }}>
+                          <List.Item.Meta 
+                            avatar={<Tag color={item.isUrgent ? 'red' : 'blue'} style={{ marginTop: '5px' }}>{item.courseCode}</Tag>}
+                            title={<span style={{ fontSize: '13px', fontWeight: 'bold', color: item.isUrgent ? 'red' : 'inherit' }}>{item.title}</span>} 
+                            description={<span style={{ fontSize: '12px', color: '#595959' }}>{item.description} <br/><small>{item.date.toLocaleString()}</small></span>} 
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  ) : (
+                    <div style={{ padding: '20px', textAlign: 'center' }}><Text type="secondary">No recent course alerts.</Text></div>
+                  )}
+                </div>
+              } 
+            >
+              <Badge count={mailboxItems.filter(i => i.isUrgent).length} color="red" style={{ cursor: 'pointer' }}>
+                <Button type="text" style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
+                  <MailOutlined style={{ fontSize: 22, color: '#1890ff' }} />
+                </Button>
+              </Badge>
+            </Popover>
 
+            {/* Social Notification Bell Popover */}
+            <Popover 
+              placement="bottomRight" 
+              title={<div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Notifications</span><Button type="link" size="small" onClick={markNotificationsAsRead}>Mark all read</Button></div>}
+              trigger="click"
+              content={
+                <div style={{ width: 320, maxHeight: '400px', overflowY: 'auto' }}>
+                  {notifications.length > 0 ? (
+                    <List
+                      itemLayout="horizontal"
+                      dataSource={notifications}
+                      renderItem={item => (
+                        <List.Item style={{ padding: '10px', background: item.isRead ? 'transparent' : '#f0f5ff', borderBottom: '1px solid #f0f0f0' }}>
+                          <List.Item.Meta 
+                            title={<span style={{ fontSize: '13px', fontWeight: item.isRead ? 'normal' : 'bold' }}>{item.title}</span>} 
+                            description={<span style={{ fontSize: '12px', color: '#595959' }}>{item.message}</span>} 
+                          />
+                        </List.Item>
+                      )}
+                    />
+                  ) : (
+                    <div style={{ padding: '20px', textAlign: 'center' }}><Text type="secondary">No new notifications.</Text></div>
+                  )}
+                </div>
+              } 
+            >
+              <Badge count={notifications.filter(n => !n.isRead).length} color="red" style={{ cursor: 'pointer' }}>
+                <BellOutlined style={{ fontSize: 22, color: '#595959' }} />
+              </Badge>
+            </Popover>
+
+          </Space>
+        </Header>
         <Content style={{ margin: '24px' }}>
           {selectedCourse ? (
             <CourseView user={user} course={selectedCourse} initialTab={selectedCourse.initialTab || 'announcements'} onBack={() => setSelectedCourse(null)} />
@@ -475,7 +477,6 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                       </Row>
                     )}
                   </Col>
-
                   <Col xs={24} lg={9} xl={7} style={{ maxWidth: '320px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px', fontSize: '12px' }} bodyStyle={{ padding: '0px 4px' }} extra={<Button type="link" size="small" style={{ fontSize: '11px' }} onClick={clearDateFilter}>Clear Filter</Button>}>
@@ -483,7 +484,6 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                           <Calendar fullscreen={false} value={calendarDate} onChange={setCalendarDate} fullCellRender={calendarCellRender} onSelect={handleDateSelect} />
                         </div>
                       </Card>
-
                       <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px' }} title={<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '13px' }}>Tasks Catalog</span><Select value={taskCategory} onChange={setTaskCategory} size="small" style={{ width: 110, fontSize: '11px' }} options={[{ value: 'upcoming', label: 'Upcoming Tasks' }, { value: 'overdue', label: 'Overdue Tasks' }]} /></div>} bodyStyle={{ maxHeight: '140px', overflowY: 'auto', padding: '4px 8px' }}>
                         {taskCategory === 'upcoming' ? (
                           <List size="small" dataSource={upcomingOnlyTasks} locale={{ emptyText: 'No upcoming tasks.' }} renderItem={item => (
@@ -498,14 +498,13 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                           <List size="small" dataSource={overdueCoursesList} locale={{ emptyText: 'No overdue tasks.' }} renderItem={courseGroup => (
                             <List.Item style={{ padding: '6px 4px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }} onClick={() => handleCourseClick(courseGroup.code, courseGroup.name)}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <Space size={4}><Tag color="red" style={{ margin: 0, fontSize: '9px' }}>{courseGroup.code}</Tag><Text style={{ fontSize: '12px', fontWeight: 600, color: '#1890ff' }}>{courseGroup.name}</Text></Space>
+                                <Space size={4}><Tag color="red" style={{ margin: '0 0 9px' }}>{courseGroup.code}</Tag><Text style={{ fontSize: '12px', fontWeight: 600, color: '#1890ff' }}>{courseGroup.name}</Text></Space>
                                 <Badge count={courseGroup.tasks.length} style={{ backgroundColor: '#ff4d4f' }} />
                               </div>
                             </List.Item>
                           )} />
                         )}
                       </Card>
-
                       <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px' }} title={<span style={{ fontSize: '13px' }}>Block Leaderboard</span>} extra={<Select value={leaderboardCourse} onChange={setLeaderboardCourse} style={{ width: 100, fontSize: '11px' }} size="small" options={[{ value: 'all', label: 'All Courses' }, ...enrolledWithProgress.map(c => ({ value: c.code, label: c.code }))]} />} bodyStyle={{ maxHeight: '160px', overflowY: 'auto', padding: '4px 8px' }}>
                         <Table size="small" dataSource={leaderboard} rowKey="_id" pagination={false} columns={[
                           { title: 'Rank', key: 'rank', render: (_, __, idx) => <Text strong style={{ fontSize: 12, color: idx === 0 ? '#faad14' : idx === 1 ? '#8c8c8c' : idx === 2 ? '#d48806' : 'inherit' }}>#{idx + 1}</Text> },
@@ -513,18 +512,23 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                           { title: 'EXP', dataIndex: 'points', key: 'points', render: pts => <Tag color="gold" style={{ fontSize: 10, margin: 0, padding: '0 4px' }}>{pts}</Tag> }
                         ]} />
                       </Card>
-
                     </div>
                   </Col>
                 </Row>
               )}
-
-              {activeTab === 'forum' && <Forum enrolledCourses={currentlyEnrolled} />}
-
+              {activeTab === 'network' && <Network currentUser={user} />}
+              {activeTab === 'forum' && (
+                <div style={{ padding: '20px', background: '#fff', borderRadius: '8px' }}>
+                  <Title level={4}>Reddit Forums</Title>
+                  <Select placeholder="Select a Course to view its Forum" style={{ width: 300, marginBottom: 20 }} onChange={val => setForumCourseCode(val)} value={forumCourseCode}>
+                    {currentlyEnrolled.map(c => <Select.Option key={c.code} value={c.code}>{c.code} - {c.name}</Select.Option>)}
+                  </Select>
+                  {forumCourseCode ? <Forum courseCode={forumCourseCode} currentUser={user} /> : <Empty description="Please select a course forum above." />}
+                </div>
+              )}
               {activeTab === 'grades' && (
                 <Card style={{ textAlign: 'center', padding: '50px 0' }}><FileDoneOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} /><br /><Text type="secondary">You have not earned any certificates yet.</Text></Card>
               )}
-
               {activeTab === 'profile' && (
                 <div style={{ maxWidth: 900, margin: '0 auto' }}>
                   <Card style={{ marginBottom: 20 }}>
@@ -532,13 +536,12 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                       <Col><Avatar size={90} src={user.photoUrl} icon={!user.photoUrl && <UserOutlined />} style={{ backgroundColor: '#1890ff' }} /></Col>
                       <Col flex={1}>
                         <Title level={3} style={{ margin: 0 }}>{user.firstName} {user.middleName} {user.lastName}</Title>
-                        <Text type="secondary" style={{ fontSize: '15px' }}>{user.schoolId} • {user.department}</Text><br />
+                        <Text type="secondary" style={{ fontSize: '15px' }}>{user.schoolId}   {user.department}</Text><br />
                         <Text>{user.schoolEmail}</Text>
                         <div style={{ marginTop: 8 }}><Tag color="blue">{userYearLevel}</Tag><Tag color="gold">{user.points || 0} EXP</Tag></div>
                       </Col>
                     </Row>
                   </Card>
-
                   <Card>
                     <Tabs defaultActiveKey="bio">
                       <Tabs.TabPane tab="BIO" key="bio">
@@ -552,8 +555,9 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                         <Text type="secondary"><strong>Mobile Number:</strong> {user.mobileNum}</Text><br/>
                         <Text type="secondary"><strong>Present Address:</strong> {user.presentAddress}</Text>
                       </Tabs.TabPane>
-                      <Tabs.TabPane tab="Forum" key="forum"><Empty description="No forum discussion history available." /></Tabs.TabPane>
-                      <Tabs.TabPane tab="Courses" key="courses"><List dataSource={enrolledWithProgress} locale={{ emptyText: 'No enrolled courses found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Tag color="blue">{course.code}</Tag>} /></List.Item>)} /></Tabs.TabPane>
+                      <Tabs.TabPane tab="Courses" key="courses">
+                        <List dataSource={enrolledWithProgress} locale={{ emptyText: 'No enrolled courses found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Tag color="blue">{course.code}</Tag>} /></List.Item>)} />
+                      </Tabs.TabPane>
                     </Tabs>
                   </Card>
                 </div>
