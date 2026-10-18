@@ -1,0 +1,10 @@
+{
+  "scripts": {
+    "server": "npm run dev --prefix backend",
+    "client": "npm start --prefix lms",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

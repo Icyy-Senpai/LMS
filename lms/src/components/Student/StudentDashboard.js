@@ -1,0 +1,567 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, 
+  Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Table, Space, Select, Divider 
+} from 'antd';
+import { 
+  UserOutlined, DashboardOutlined, FileDoneOutlined, LogoutOutlined, 
+  SettingOutlined, AppstoreOutlined, PlusOutlined, 
+  BellOutlined, CommentOutlined, EditOutlined
+} from '@ant-design/icons';
+import dayjs from 'dayjs';
+import CourseView from './CourseView';
+import Forum from './Forum';
+import api from '../../api';
+
+// Import your logo directly from the src folder
+import logoImage from '../../logo.png';
+
+const { Header, Sider, Content } = Layout;
+const { Title, Text, Paragraph } = Typography;
+
+export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedCourse, setSelectedCourse] = useState(null);
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
+  
+  // New State for Available Courses Modal
+  const [isCatalogModalVisible, setIsCatalogModalVisible] = useState(false);
+  
+  const [avatarUrl, setAvatarUrl] = useState(user.photoUrl);
+  const [collapsed, setCollapsed] = useState(true);
+  
+  const [allCourses, setAllCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [upcomingTasks, setUpcomingTasks] = useState([]);
+  
+  const [taskCategory, setTaskCategory] = useState('upcoming');
+
+  const [activeCourseModal, setActiveCourseModal] = useState(null);
+  const [courseModalTasks, setCourseModalTasks] = useState([]);
+
+  const [calendarDate, setCalendarDate] = useState(() => dayjs());
+  const [selectedDateFilter, setSelectedDateFilter] = useState('');
+  
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardCourse, setLeaderboardCourse] = useState('all');
+  const [form] = Form.useForm();
+
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [bioText, setBioText] = useState(user.bio || '');
+
+  const userYearLevel = user.yearLevel ? `${user.yearLevel}rd Year` : '1st Year';
+
+  // Address Bar History Update
+  useEffect(() => {
+    if (selectedCourse) {
+      window.history.pushState(null, '', `/course/${selectedCourse.code}`);
+      document.title = `eLMS | ${selectedCourse.code}`;
+    } else {
+      window.history.pushState(null, '', `/${activeTab}`);
+      document.title = `eLMS | ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`;
+    }
+  }, [activeTab, selectedCourse]);
+
+  // 1. Fetch Courses
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await api.get('/courses');
+        if (response.data.success) setAllCourses(response.data.courses);
+      } catch (error) {
+        message.error('Failed to load course catalog');
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+    fetchCourses();
+  }, []);
+
+  // 2. Fetch Leaderboard
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      const courseParam = leaderboardCourse !== 'all' ? `&courseCode=${leaderboardCourse}` : '';
+      api.get(`/leaderboard?schoolId=${user.schoolId}${courseParam}`)
+        .then(res => { if (res.data.success) setLeaderboard(res.data.leaderboard); })
+        .catch(() => message.error('Failed to fetch leaderboard'));
+    }
+  }, [activeTab, leaderboardCourse, user.schoolId]);
+
+  const enrolledWithProgress = allCourses.filter(course => 
+    (user.enrolledCourseSubjects && user.enrolledCourseSubjects.some(e => e.code === course.code)) || 
+    (user.enrolledCourses && user.enrolledCourses.some(e => e.code === course.code))
+  ).map(course => {
+    const legacy = user.enrolledCourses?.find(e => e.code === course.code);
+    const newE = user.enrolledCourseSubjects?.find(e => e.code === course.code);
+    return { ...course, progress: legacy?.progress || newE?.progress || 0 };
+  });
+
+  const currentlyEnrolled = enrolledWithProgress.filter(c => c.progress < 100);
+  const completedCourses = enrolledWithProgress.filter(c => c.progress >= 100);
+
+  // Filter available courses matching the student's department/targetProgram
+  const programAvailableCourses = allCourses.filter(c => 
+    c.targetProgram === user.department || c.department === user.department
+  );
+
+  const getOverdueText = (deadline) => {
+    const ms = new Date() - new Date(deadline);
+    const mins = Math.floor((ms / 1000) / 60);
+    const hrs = Math.floor(mins / 60);
+    const days = Math.floor(hrs / 24);
+    if (days > 0) return `${days}d`;
+    if (hrs > 0) return `${hrs}h`;
+    return `${mins}m`;
+  };
+
+  // 3. Fetch Upcoming Tasks
+  useEffect(() => {
+    if (currentlyEnrolled.length === 0) return;
+    
+    const fetchTasks = async () => {
+      let tasks = [];
+      for (let course of currentlyEnrolled) {
+        try {
+          const [contentRes, assRes] = await Promise.all([
+            api.get(`/instructor/course/${course.code}`),
+            api.get(`/assignments/${course.code}`)
+          ]);
+
+          const dataContent = contentRes.data;
+          const dataAssignments = assRes.data;
+
+          if (dataContent.success && dataContent.content?.quizzes) {
+            dataContent.content.quizzes.forEach(q => tasks.push({
+              id: q._id, courseCode: course.code, courseName: course.name, type: 'Quiz', title: q.title, 
+              dateStr: 'Upcoming', rawDate: new Date(8640000000000000), isOverdue: false
+            }));
+          }
+
+          if (dataAssignments.success) {
+            dataAssignments.assignments.forEach(a => {
+              const hasSubmitted = a.submissions?.some(s => s.studentUsername === user.schoolId);
+              if (!hasSubmitted) {
+                const dl = new Date(a.deadline);
+                const isOverdue = new Date() > dl;
+                const filterStr = dayjs(dl).format('YYYY-MM-DD');
+
+                tasks.push({
+                  id: a._id, courseCode: course.code, courseName: course.name, type: 'Assignment', title: a.title,
+                  dateStr: dayjs(dl).format('MMM D, h:mm A'), calendarFilter: filterStr,
+                  isOverdue, overdueString: isOverdue ? getOverdueText(dl) : '', rawDate: dl
+                });
+              }
+            });
+          }
+        } catch (e) { console.error('Task fetch error'); }
+      }
+      tasks.sort((a, b) => a.rawDate - b.rawDate);
+      setUpcomingTasks(tasks);
+    };
+    fetchTasks();
+  }, [allCourses]);
+
+  const handleProfileUpdate = async (values) => {
+    try {
+      const response = await api.post('/update-profile', { schoolId: user.schoolId, ...values, photoUrl: avatarUrl });
+      if (response.data.success) {
+        message.success("Profile Updated");
+        onUpdateProfile(response.data.user);
+        setIsProfileModalVisible(false);
+      }
+    } catch (err) { message.error('Error updating profile'); }
+  };
+
+  const handleBioSave = async () => {
+    try {
+      const response = await api.post('/update-profile', { schoolId: user.schoolId, bio: bioText, photoUrl: avatarUrl });
+      if (response.data.success) {
+        message.success("Bio updated successfully!");
+        onUpdateProfile(response.data.user);
+        setIsEditingBio(false);
+      } else {
+        message.error("Failed to update bio");
+      }
+    } catch (err) {
+      message.error("Server error updating bio");
+    }
+  };
+
+  const handleImageUpload = (info) => {
+    if (info.file.status === 'done' || info.file.originFileObj) {
+      const reader = new FileReader();
+      reader.onload = () => setAvatarUrl(reader.result);
+      reader.readAsDataURL(info.file.originFileObj);
+    }
+  };
+
+  const calendarCellRender = (value) => {
+    const cellDateStr = value.format('YYYY-MM-DD');
+    const isSelected = selectedDateFilter === cellDateStr;
+    const isToday = cellDateStr === dayjs().format('YYYY-MM-DD');
+    
+    const dayTodos = upcomingTasks.filter(todo => todo.calendarFilter === cellDateStr);
+    
+    return (
+      <div style={{ textAlign: 'center', fontSize: '11px', padding: '2px 0' }}>
+        <div style={{ 
+          display: 'inline-block', width: '22px', height: '22px', lineHeight: '22px', borderRadius: '50%', 
+          backgroundColor: isSelected ? '#1890ff' : 'transparent', color: isSelected ? '#fff' : 'inherit',
+          border: isToday && !isSelected ? '1px solid #1890ff' : '1px solid transparent',
+          fontWeight: isSelected || isToday ? 'bold' : 'normal', transition: 'all 0.2s'
+        }}>
+          {value.date()}
+        </div>
+        {dayTodos.length > 0 && (
+          <div style={{ marginTop: -4 }}>
+            <Badge dot color={isSelected ? 'white' : 'red'} />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const handleDateSelect = (date, info) => {
+    setCalendarDate(date);
+    if (info && info.source === 'date') setSelectedDateFilter(date.format('YYYY-MM-DD'));
+  };
+
+  const clearDateFilter = () => {
+    setCalendarDate(dayjs());
+    setSelectedDateFilter('');
+  };
+
+  const filteredTasks = selectedDateFilter ? upcomingTasks.filter(t => t.calendarFilter === selectedDateFilter) : upcomingTasks;
+  const upcomingOnlyTasks = filteredTasks.filter(t => !t.isOverdue);
+  const overdueOnlyTasks = filteredTasks.filter(t => t.isOverdue);
+
+  const overdueCoursesMap = overdueOnlyTasks.reduce((acc, task) => {
+    if (!acc[task.courseCode]) {
+      acc[task.courseCode] = { code: task.courseCode, name: task.courseName, tasks: [] };
+    }
+    acc[task.courseCode].tasks.push(task);
+    return acc;
+  }, {});
+  const overdueCoursesList = Object.values(overdueCoursesMap);
+
+  const handleCourseClick = (courseCode, courseName) => {
+    const targetCourse = currentlyEnrolled.find(c => c.code === courseCode) || { code: courseCode, name: courseName };
+    setActiveCourseModal(targetCourse);
+    setCourseModalTasks((taskCategory === 'upcoming' ? upcomingOnlyTasks : overdueOnlyTasks).filter(t => t.courseCode === courseCode));
+  };
+
+  // Popover content now includes the View All Available Courses button
+  const catalogPopoverContent = (
+    <div style={{ width: 280 }}>
+      <Tabs defaultActiveKey="enrolled">
+        <Tabs.TabPane tab={<Badge count={currentlyEnrolled.length} offset={[10, 0]} color="blue">Enrolled</Badge>} key="enrolled">
+          {currentlyEnrolled.length > 0 ? (
+            <List size="small" dataSource={currentlyEnrolled} renderItem={c => (
+              <List.Item style={{ cursor: 'pointer' }} onClick={() => { setSelectedCourse(c); }}>
+                <Text strong>{c.code}</Text> <br/> <Text type="secondary" style={{ fontSize: '12px' }}>{c.name}</Text>
+              </List.Item>
+            )} />
+          ) : <Empty description="No enrolled courses." image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+        </Tabs.TabPane>
+        <Tabs.TabPane tab={<Badge count={completedCourses.length} offset={[10, 0]} color="green">Completed</Badge>} key="completed">
+          {completedCourses.length > 0 ? (
+            <List size="small" dataSource={completedCourses} renderItem={c => (
+              <List.Item style={{ cursor: 'pointer' }} onClick={() => { setSelectedCourse(c); }}>
+                <Text strong>{c.code}</Text> <br/> <Text type="secondary" style={{ fontSize: '12px' }}>{c.name}</Text>
+              </List.Item>
+            )} />
+          ) : <Empty description="No completed courses." image={Empty.PRESENTED_IMAGE_SIMPLE} />}
+        </Tabs.TabPane>
+      </Tabs>
+      <Divider style={{ margin: '12px 0 8px 0' }} />
+      <Button type="dashed" block onClick={() => setIsCatalogModalVisible(true)}>
+        View All Available Courses
+      </Button>
+    </div>
+  );
+
+  const menuItems = [
+    { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
+    { key: 'catalog', icon: <AppstoreOutlined />, label: (
+      <Popover placement="rightTop" content={catalogPopoverContent} trigger="hover">
+        <div style={{ width: '100%' }}>Course Catalog</div>
+      </Popover>
+    )},
+    { key: 'grades', icon: <FileDoneOutlined />, label: 'Grades & Certificates' },
+    { type: 'divider' },
+    { key: 'forum', icon: <CommentOutlined />, label: 'Forum' },
+    { type: 'divider' },
+    { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
+  ];
+
+  if (loadingCourses) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><Spin size="large" /></div>;
+
+  const getHeaderTitle = () => {
+    if (selectedCourse) return selectedCourse.code;
+    if (activeTab === 'profile') return `${user.firstName} ${user.lastName} | Profile`;
+    return activeTab.replace('-', ' ');
+  };
+
+  return (
+    <Layout style={{ minHeight: '100vh' }}>
+      
+      {/* Settings Modal */}
+      <Modal title="Student Settings" open={isProfileModalVisible} onCancel={() => setIsProfileModalVisible(false)} footer={null} destroyOnClose width={800}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+          <Upload name="avatar" listType="picture-circle" showUploadList={false} customRequest={({ onSuccess }) => setTimeout(() => onSuccess("ok"), 0)} onChange={handleImageUpload}>
+            {avatarUrl ? <img src={avatarUrl} alt="avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} /> : <div><PlusOutlined /><div style={{ marginTop: 8 }}>Upload</div></div>}
+          </Upload>
+        </div>
+        <Form form={form} layout="vertical" onFinish={handleProfileUpdate} initialValues={user}>
+          <Row gutter={16}>
+            <Col span={12}><Form.Item name="personalEmail" label="Personal Email" rules={[{ required: true }]}><Input /></Form.Item></Col>
+            <Col span={12}><Form.Item name="mobileNum" label="Mobile Number" rules={[{ required: true }]}><Input type="number" /></Form.Item></Col>
+          </Row>
+          <Form.Item name="presentAddress" label="Present Address" rules={[{ required: true }]}><Input /></Form.Item>
+          <Button type="primary" htmlType="submit" block>Save Changes</Button>
+        </Form>
+      </Modal>
+
+      {/* Course Tasks Modal */}
+      <Modal 
+        title={activeCourseModal ? `${activeCourseModal.code}: ${activeCourseModal.name}` : "Course Tasks"} 
+        open={Boolean(activeCourseModal)} 
+        onCancel={() => setActiveCourseModal(null)} 
+        footer={[<Button key="close" type="primary" onClick={() => setActiveCourseModal(null)}>Close</Button>]}
+      >
+        <List 
+          size="small"
+          dataSource={courseModalTasks}
+          locale={{ emptyText: 'No tasks found for this course.' }}
+          renderItem={item => (
+            <List.Item>
+              <List.Item.Meta 
+                title={item.title} 
+                description={
+                  <Space>
+                    <Tag color={item.type === 'Quiz' ? 'purple' : 'geekblue'}>{item.type}</Tag>
+                    <Text type={item.isOverdue ? 'danger' : 'secondary'} strong={item.isOverdue}>
+                      {item.isOverdue ? `Overdue by ${item.overdueString}` : `Due: ${item.dateStr}`}
+                    </Text>
+                  </Space>
+                }
+              />
+            </List.Item>
+          )}
+        />
+        {activeCourseModal && (
+          <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <Button type="primary" onClick={() => { setSelectedCourse(activeCourseModal); setActiveCourseModal(null); }}>
+              Open Course Workspace
+            </Button>
+          </div>
+        )}
+      </Modal>
+
+      {/* All Available Courses Modal */}
+      <Modal 
+        title={`Available Courses: ${user.department}`} 
+        open={isCatalogModalVisible} 
+        onCancel={() => setIsCatalogModalVisible(false)} 
+        footer={[<Button key="close" type="primary" onClick={() => setIsCatalogModalVisible(false)}>Close</Button>]}
+        width={750}
+      >
+        <List
+          grid={{ gutter: 16, xs: 1, sm: 2 }}
+          dataSource={programAvailableCourses}
+          locale={{ emptyText: `No available courses found for ${user.department}.` }}
+          renderItem={course => (
+            <List.Item>
+              <Card size="small" hoverable>
+                <div style={{ height: 40, backgroundColor: course.color || '#1890ff', margin: '-12px -12px 12px -12px', borderRadius: '8px 8px 0 0' }} />
+                <Text strong>{course.code}</Text>
+                <Title level={5} style={{ margin: '4px 0', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {course.name}
+                </Title>
+                <Text type="secondary" style={{ fontSize: '12px' }}>Prof. {course.instructor || 'TBA'}</Text>
+              </Card>
+            </List.Item>
+          )}
+        />
+      </Modal>
+
+      {/* Sidebar */}
+      <Sider theme="light" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null} style={{ borderRight: '1px solid #f0f0f0' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          
+          <div 
+            onClick={() => { setActiveTab('dashboard'); setSelectedCourse(null); }}
+            style={{ 
+              height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              borderBottom: '1px solid #f0f0f0', cursor: 'pointer', transition: 'background-color 0.3s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fafafa'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
+            {collapsed ? (
+              <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} />
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} />
+                <Title level={4} style={{ margin: 0, color: '#1890ff' }}>eLMS</Title>
+              </div>
+            )}
+          </div>
+          
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <Menu 
+              mode="inline" selectedKeys={selectedCourse ? [] : [activeTab]} 
+              onClick={(e) => { if(e.key !== 'catalog') { setActiveTab(e.key); setSelectedCourse(null); } }} 
+              items={menuItems} style={{ borderRight: 0, marginTop: 16 }} 
+            />
+          </div>
+
+          <div style={{ padding: collapsed ? '16px 8px' : '16px', borderTop: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}>
+            {collapsed ? (
+              <Avatar src={user.photoUrl} style={{ backgroundColor: '#1890ff' }} icon={!user.photoUrl && <UserOutlined />} />
+            ) : (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                  <Avatar src={user.photoUrl} style={{ backgroundColor: '#1890ff' }} icon={!user.photoUrl && <UserOutlined />} />
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user.firstName} {user.lastName}</div>
+                    <div style={{ fontSize: '12px', color: '#faad14', fontWeight: 'bold' }}>{user.points || 0} EXP</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button icon={<SettingOutlined />} onClick={() => { form.setFieldsValue(user); setAvatarUrl(user.photoUrl); setIsProfileModalVisible(true); }} style={{ flex: 1, fontSize: '12px' }}>Settings</Button>
+                  <Button danger icon={<LogoutOutlined />} onClick={onLogout} style={{ flex: 1, fontSize: '12px' }}>Logout</Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </Sider>
+
+      {/* Main Layout */}
+      <Layout>
+        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,21,41,.08)', zIndex: 1 }}>
+          <Title level={4} style={{ margin: 0, textTransform: 'none' }}>{getHeaderTitle()}</Title>
+          <Popover placement="bottomRight" title="Notifications" content={<div style={{ padding: '16px 0' }}><Text type="secondary">No new notifications.</Text></div>} trigger="click">
+            <Badge count={(user.notifications || []).filter(n => !n.isRead).length} color="red" style={{ cursor: 'pointer' }}>
+              <BellOutlined style={{ fontSize: 22, color: '#8c8c8c' }} />
+            </Badge>
+          </Popover>
+        </Header>
+
+        <Content style={{ margin: '24px' }}>
+          {selectedCourse ? (
+            <CourseView user={user} course={selectedCourse} initialTab={selectedCourse.initialTab || 'announcements'} onBack={() => setSelectedCourse(null)} />
+          ) : (
+            <>
+              {activeTab === 'dashboard' && (
+                <Row gutter={[24, 24]} justify="space-between">
+                  <Col xs={24} lg={15} xl={17}>
+                    <Title level={5} style={{ marginBottom: 12 }}>My Enrolled Courses</Title>
+                    {currentlyEnrolled.length === 0 ? <Empty description="You are not enrolled in any courses." /> : (
+                      <Row gutter={[16, 16]}>
+                        {currentlyEnrolled.map(course => (
+                          <Col xs={24} sm={12} md={12} xl={8} key={course.id}>
+                            <Card hoverable bodyStyle={{ padding: 0 }} onClick={() => setSelectedCourse(course)}>
+                              <div style={{ height: 60, backgroundColor: course.color || '#1890ff' }} />
+                              <div style={{ padding: 16 }}>
+                                <Text type="secondary" strong>{course.code}</Text>
+                                <Title level={5} style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</Title>
+                                <Text type="secondary" style={{ fontSize: '12px' }}>{course.instructor}</Text>
+                              </div>
+                            </Card>
+                          </Col>
+                        ))}
+                      </Row>
+                    )}
+                  </Col>
+
+                  <Col xs={24} lg={9} xl={7} style={{ maxWidth: '320px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px', fontSize: '12px' }} bodyStyle={{ padding: '0px 4px' }} extra={<Button type="link" size="small" style={{ fontSize: '11px' }} onClick={clearDateFilter}>Clear Filter</Button>}>
+                        <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', margin: '-10px 0 -45px 0' }}>
+                          <Calendar fullscreen={false} value={calendarDate} onChange={setCalendarDate} fullCellRender={calendarCellRender} onSelect={handleDateSelect} />
+                        </div>
+                      </Card>
+
+                      <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px' }} title={<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: '13px' }}>Tasks Catalog</span><Select value={taskCategory} onChange={setTaskCategory} size="small" style={{ width: 110, fontSize: '11px' }} options={[{ value: 'upcoming', label: 'Upcoming Tasks' }, { value: 'overdue', label: 'Overdue Tasks' }]} /></div>} bodyStyle={{ maxHeight: '140px', overflowY: 'auto', padding: '4px 8px' }}>
+                        {taskCategory === 'upcoming' ? (
+                          <List size="small" dataSource={upcomingOnlyTasks} locale={{ emptyText: 'No upcoming tasks.' }} renderItem={item => (
+                            <List.Item style={{ padding: '4px 0', borderBottom: '1px solid #f5f5f5' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <Space size={4}><Tag color={item.type === 'Quiz' ? 'purple' : 'geekblue'} style={{ margin: 0, fontSize: '9px' }}>{item.courseCode}</Tag><Text style={{ fontSize: '11px', fontWeight: 500 }}>{item.title}</Text></Space>
+                                <Text type="secondary" style={{ fontSize: '10px' }}>{item.dateStr}</Text>
+                              </div>
+                            </List.Item>
+                          )} />
+                        ) : (
+                          <List size="small" dataSource={overdueCoursesList} locale={{ emptyText: 'No overdue tasks.' }} renderItem={courseGroup => (
+                            <List.Item style={{ padding: '6px 4px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }} onClick={() => handleCourseClick(courseGroup.code, courseGroup.name)}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                <Space size={4}><Tag color="red" style={{ margin: 0, fontSize: '9px' }}>{courseGroup.code}</Tag><Text style={{ fontSize: '12px', fontWeight: 600, color: '#1890ff' }}>{courseGroup.name}</Text></Space>
+                                <Badge count={courseGroup.tasks.length} style={{ backgroundColor: '#ff4d4f' }} />
+                              </div>
+                            </List.Item>
+                          )} />
+                        )}
+                      </Card>
+
+                      <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px' }} title={<span style={{ fontSize: '13px' }}>Block Leaderboard</span>} extra={<Select value={leaderboardCourse} onChange={setLeaderboardCourse} style={{ width: 100, fontSize: '11px' }} size="small" options={[{ value: 'all', label: 'All Courses' }, ...enrolledWithProgress.map(c => ({ value: c.code, label: c.code }))]} />} bodyStyle={{ maxHeight: '160px', overflowY: 'auto', padding: '4px 8px' }}>
+                        <Table size="small" dataSource={leaderboard} rowKey="_id" pagination={false} columns={[
+                          { title: 'Rank', key: 'rank', render: (_, __, idx) => <Text strong style={{ fontSize: 12, color: idx === 0 ? '#faad14' : idx === 1 ? '#8c8c8c' : idx === 2 ? '#d48806' : 'inherit' }}>#{idx + 1}</Text> },
+                          { title: 'Student', key: 'student', render: (_, record) => <Space><Avatar size="small" src={record.photoUrl} icon={!record.photoUrl && <UserOutlined />} /><Text style={{fontSize: '11px'}} strong>{record.firstName} {record.lastName}</Text></Space> },
+                          { title: 'EXP', dataIndex: 'points', key: 'points', render: pts => <Tag color="gold" style={{ fontSize: 10, margin: 0, padding: '0 4px' }}>{pts}</Tag> }
+                        ]} />
+                      </Card>
+
+                    </div>
+                  </Col>
+                </Row>
+              )}
+
+              {activeTab === 'forum' && <Forum enrolledCourses={currentlyEnrolled} />}
+
+              {activeTab === 'grades' && (
+                <Card style={{ textAlign: 'center', padding: '50px 0' }}><FileDoneOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} /><br /><Text type="secondary">You have not earned any certificates yet.</Text></Card>
+              )}
+
+              {activeTab === 'profile' && (
+                <div style={{ maxWidth: 900, margin: '0 auto' }}>
+                  <Card style={{ marginBottom: 20 }}>
+                    <Row gutter={24} align="middle">
+                      <Col><Avatar size={90} src={user.photoUrl} icon={!user.photoUrl && <UserOutlined />} style={{ backgroundColor: '#1890ff' }} /></Col>
+                      <Col flex={1}>
+                        <Title level={3} style={{ margin: 0 }}>{user.firstName} {user.middleName} {user.lastName}</Title>
+                        <Text type="secondary" style={{ fontSize: '15px' }}>{user.schoolId} • {user.department}</Text><br />
+                        <Text>{user.schoolEmail}</Text>
+                        <div style={{ marginTop: 8 }}><Tag color="blue">{userYearLevel}</Tag><Tag color="gold">{user.points || 0} EXP</Tag></div>
+                      </Col>
+                    </Row>
+                  </Card>
+
+                  <Card>
+                    <Tabs defaultActiveKey="bio">
+                      <Tabs.TabPane tab="BIO" key="bio">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                          <Title level={5} style={{ margin: 0 }}>Student Biography</Title>
+                          {!isEditingBio ? <Button icon={<EditOutlined />} onClick={() => setIsEditingBio(true)}>Edit Bio</Button> : <Space><Button type="primary" onClick={handleBioSave}>Save</Button><Button onClick={() => { setIsEditingBio(false); setBioText(user.bio || ''); }}>Cancel</Button></Space>}
+                        </div>
+                        {!isEditingBio ? <Paragraph style={{ whiteSpace: 'pre-wrap', backgroundColor: '#fafafa', padding: 16, borderRadius: 6, minHeight: 80 }}>{user.bio || "No biography provided yet. Click 'Edit Bio' to add one."}</Paragraph> : <Input.TextArea rows={4} value={bioText} onChange={(e) => setBioText(e.target.value)} placeholder="Write something about yourself..." />}
+                        <Divider />
+                        <Text type="secondary"><strong>Personal Email:</strong> {user.personalEmail}</Text><br/>
+                        <Text type="secondary"><strong>Mobile Number:</strong> {user.mobileNum}</Text><br/>
+                        <Text type="secondary"><strong>Present Address:</strong> {user.presentAddress}</Text>
+                      </Tabs.TabPane>
+                      <Tabs.TabPane tab="Forum" key="forum"><Empty description="No forum discussion history available." /></Tabs.TabPane>
+                      <Tabs.TabPane tab="Courses" key="courses"><List dataSource={enrolledWithProgress} locale={{ emptyText: 'No enrolled courses found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Tag color="blue">{course.code}</Tag>} /></List.Item>)} /></Tabs.TabPane>
+                    </Tabs>
+                  </Card>
+                </div>
+              )}
+            </>
+          )}
+        </Content>
+      </Layout>
+    </Layout>
+  );
+}
