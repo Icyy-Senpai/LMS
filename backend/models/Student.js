@@ -39,6 +39,7 @@ const studentSchema = new mongoose.Schema({
   block: { type: String, required: true},
   password: { type: String, required: true},
   photoUrl: { type: String, default: '' },
+  status: { type: String, enum: ['Active', 'Suspended'], default: 'Active' },
   accountType : {type: String, required: true, default: 'Student'},
 
   // Profile Data

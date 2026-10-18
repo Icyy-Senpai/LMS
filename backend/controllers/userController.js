@@ -31,6 +31,10 @@ const login = async (req, res) => {
       }
     }
 
+    if (user && user.status === 'Suspended') {
+      return res.status(403).json({ success: false, message: 'This account has been suspended. Please contact an administrator.' });
+    }
+
     if (user) {
       res.json({ success: true, user });
     } else {

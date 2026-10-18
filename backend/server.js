@@ -8,7 +8,7 @@ const forumRoutes = require('./routes/forumRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const quizRoutes = require('./routes/quizRoutes');
 const socialRoutes = require('./routes/socialRoutes');
-const adminRoutes = require('./routes/adminRoutes'); // New
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -19,12 +19,12 @@ mongoose.connect('mongodb://127.0.0.1:27017/lms_project')
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));
 
+app.use('/api', adminRoutes); // mounted first; guarded by requireAdmin inside the router
 app.use('/api', userRoutes);
 app.use('/api', courseRoutes);
 app.use('/api', forumRoutes);
 app.use('/api', assignmentRoutes);
 app.use('/api', quizRoutes);
 app.use('/api', socialRoutes);
-app.use('/api', adminRoutes);
 
 app.listen(5000, () => console.log('Backend running on port 5000'));

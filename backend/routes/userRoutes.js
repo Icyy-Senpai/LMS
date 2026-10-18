@@ -3,7 +3,6 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 
 router.post('/login', userController.login);
-router.get('/admin/users', userController.getAdminUsers);
 router.post('/update-profile', userController.updateProfile);
 router.post('/update-todos', userController.updateTodos);
 router.get('/leaderboard', userController.getLeaderboard);

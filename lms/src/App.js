@@ -69,7 +69,7 @@ export default function App() {
       ) : user.accountType === 'Teacher' ? (
         <TeacherDashboard user={user} onLogout={handleLogout} />
       ) : user.accountType === 'Admin' ? (
-        <AdminDashboard user={user} onLogout={handleLogout} />
+        <AdminDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#f0f2f5' }}>
           <h2>Error: Invalid Role</h2>

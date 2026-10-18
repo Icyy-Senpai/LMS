@@ -36,6 +36,7 @@ const teacherSchema = new mongoose.Schema({
   department: { type: String, default: '' }, // Updated to allow empty default
   password: { type: String, required: true},
   photoUrl: { type: String, default: '' },
+  status: { type: String, enum: ['Active', 'Suspended'], default: 'Active' },
   accountType : {type: String, required: true, default: 'Teacher'},
 
   points: { type: Number, default: 0 },
