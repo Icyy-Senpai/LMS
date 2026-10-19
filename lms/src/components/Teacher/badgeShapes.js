@@ -32,11 +32,11 @@ export const loadImage = (file) => new Promise((resolve, reject) => {
   img.src = url;
 });
 
-/** Loads a URL (e.g. a data URL returned by the AI image generator) into an HTMLImageElement. */
+/** Loads a URL (e.g. the bundled placeholder logo) into an HTMLImageElement. */
 export const loadImageUrl = (src) => new Promise((resolve, reject) => {
   const img = new Image();
   img.onload = () => resolve(img);
-  img.onerror = () => reject(new Error('The generated image could not be read.'));
+  img.onerror = () => reject(new Error('The placeholder image could not be loaded.'));
   img.src = src;
 });
 

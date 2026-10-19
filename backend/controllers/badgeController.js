@@ -4,10 +4,6 @@ const Course = require('../models/Course');
 const Student = require('../models/Student');
 const Notification = require('../models/Notification');
 const { listBlocks } = require('../utils/blocks');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-const genAI = new GoogleGenerativeAI(process.env.GCP_API_KEY);
-const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const sendErr = (res, err, fallback) => {
@@ -46,7 +42,7 @@ const createBadge = async (req, res) => {
     if (!cleanName) throw fail(400, 'Badge name is required.');
     if (cleanName.length > 60) throw fail(400, 'Badge name is too long (max 60 characters).');
     if (!BADGE_SHAPES.includes(shape)) throw fail(400, 'Please choose a badge shape.');
-    if (typeof photoUrl !== 'string' || !/^data:image\/(png|jpeg|webp|gif);base64,/.test(photoUrl)) throw fail(400, 'Please upload or generate an image for the badge.');
+    if (typeof photoUrl !== 'string' || !/^data:image\/(png|jpeg|webp|gif);base64,/.test(photoUrl)) throw fail(400, 'Please upload an image for the badge.');
     if (photoUrl.length > MAX_IMAGE_CHARS) throw fail(400, 'The badge image is too large.');
     const blockCode = typeof block === 'string' ? block.trim() : '';
     if (!blockCode || !(await listBlocks()).some(b => b.code === blockCode)) throw fail(400, 'Please choose an existing block.');
@@ -103,36 +99,6 @@ const assignBadge = async (req, res) => {
   } catch (err) { sendErr(res, err, 'Failed to assign the badge.'); }
 };
 
-// Generates a square badge image from the badge title with Gemini. The browser then crops it to the chosen shape
-// exactly like an uploaded photo, so this only returns the raw image (as a data URL).
-const generateBadgeImage = async (req, res) => {
-  const { name, courseCode } = req.body;
-  try {
-    const course = await ownedCourse(req.teacher, courseCode);
-    const cleanName = typeof name === 'string' ? name.trim() : '';
-    if (!cleanName) throw fail(400, 'Enter a badge name first so the image can be generated from it.');
-    if (cleanName.length > 60) throw fail(400, 'Badge name is too long (max 60 characters).');
-
-    const prompt = `Create a square illustration for an achievement badge titled "${cleanName}" `
-      + `(awarded in the course "${course.name || course.code}"). `
-      + 'A single bold, centred emblem that represents the title, flat vector style, vibrant colours, '
-      + 'filling the whole frame edge to edge with a solid coloured background. No text, letters or numbers.';
-    const model = genAI.getGenerativeModel({ model: IMAGE_MODEL });
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
-    });
-    const parts = result.response?.candidates?.[0]?.content?.parts || [];
-    const image = parts.find(p => p.inlineData && /^image\//.test(p.inlineData.mimeType || ''));
-    if (!image) throw fail(502, 'The AI did not return an image. Please try again or upload one.');
-
-    res.json({ success: true, photoUrl: `data:${image.inlineData.mimeType};base64,${image.inlineData.data}` });
-  } catch (err) {
-    if (!err.status) console.error('Badge image generation error:', err);
-    sendErr(res, err.status ? err : fail(502, 'Failed to generate the badge image. Please try again or upload one.'), 'Failed to generate the badge image.');
-  }
-};
-
 // The badges one student has earned (shown in their profile).
 const getStudentBadges = async (req, res) => {
   try {
@@ -151,4 +117,4 @@ const getStudentBadges = async (req, res) => {
   } catch (err) { sendErr(res, err, 'Failed to load badges.'); }
 };
 
-module.exports = { getCourseBadges, createBadge, generateBadgeImage, deleteBadge, assignBadge, getStudentBadges };
+module.exports = { getCourseBadges, createBadge, deleteBadge, assignBadge, getStudentBadges };

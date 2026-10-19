@@ -4,7 +4,7 @@ const BADGE_SHAPES = ['circle', 'square', 'hexagon', 'octagon', 'diamond', 'shie
 
 const badgeSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
-  // The uploaded (or AI-generated) image, already cropped to `shape` by the browser (PNG data URL with a transparent background).
+  // The uploaded image (or the LMS logo when none was chosen), already cropped to `shape` by the browser (PNG data URL with a transparent background).
   photoUrl: { type: String, required: true, default: '' },
   shape: { type: String, enum: BADGE_SHAPES, default: 'circle' },
   course: { type: String, required: true },      // course code

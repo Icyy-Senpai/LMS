@@ -3,6 +3,7 @@ import { Modal, Form, Input, Select, Upload, Typography, Space, message } from '
 import { InboxOutlined } from '@ant-design/icons';
 import api from '../../api';
 import { BADGE_SHAPES, loadImage, loadImageUrl, renderBadgePng } from './badgeShapes';
+import logoImage from '../../logo.png';
 
 const { Text } = Typography;
 const MAX_UPLOAD_MB = 5;
@@ -28,8 +29,8 @@ function ShapeTile({ shape, imageUrl, selected, onClick }) {
 }
 
 /**
- * Create a badge for one course. The teacher uploads an image (optional) and picks a shape. With no upload, an image
- * is AI-generated from the badge name. Either way it is cropped to fill the shape and stored (as a PNG data URL)
+ * Create a badge for one course. The teacher uploads an image (optional) and picks a shape. With no upload, the LMS
+ * logo is used as a placeholder. Either way it is cropped to fill the shape and stored (as a PNG data URL)
  * together with the name, course, block and department.
  */
 export default function BadgeFormModal({ open, course, onClose, onCreated }) {
@@ -39,7 +40,6 @@ export default function BadgeFormModal({ open, course, onClose, onCreated }) {
   const [imgUrl, setImgUrl] = useState('');      // object/data URL used by the live previews
   const [shape, setShape] = useState('circle');
   const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -64,41 +64,32 @@ export default function BadgeFormModal({ open, course, onClose, onCreated }) {
   const submit = async (values) => {
     setSaving(true);
     try {
-      let source = img;
-      if (!source) {
-        // No upload: have Gemini draw one from the badge name, then crop it like an uploaded photo.
-        setGenerating(true);
-        const gen = await api.post('/badges/generate-image', { name: values.name, courseCode: course.code });
-        source = await loadImageUrl(gen.data.photoUrl);
-        setImg(source); setImgUrl(gen.data.photoUrl); // keep it, so a failed save doesn't regenerate
-        setGenerating(false);
-      }
+      const source = img || await loadImageUrl(logoImage); // no upload: fall back to the placeholder logo
       const photoUrl = renderBadgePng(source, shape);
       const res = await api.post('/badges', {
         name: values.name, block: values.block, shape, photoUrl, courseCode: course.code
       });
       if (res.data.success) { message.success(res.data.message); onCreated && onCreated(res.data.badge); onClose(); }
     } catch (err) { message.error(err?.response?.data?.message || err.message || 'Failed to create the badge.'); }
-    setGenerating(false);
     setSaving(false);
   };
 
   return (
     <Modal title={`Create Badge: ${course?.code || ''}`} open={open} onCancel={onClose} onOk={() => form.submit()}
-      okText={generating ? 'Generating image...' : 'Create Badge'} confirmLoading={saving} width={640} destroyOnHidden>
+      okText="Create Badge" confirmLoading={saving} width={640} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={submit}>
         <Form.Item label="Badge image (optional)"
-          extra="The image is cropped automatically so it fills the chosen shape. Leave it empty to have AI generate one from the badge name.">
+          extra="The image is cropped automatically so it fills the chosen shape. Leave it empty to use the default logo.">
           <Upload.Dragger accept="image/*" maxCount={1} showUploadList={false} beforeUpload={onPick} style={{ padding: 4 }}>
             {imgUrl
               ? <img src={imgUrl} alt="Selected" style={{ maxHeight: 110, maxWidth: '100%', borderRadius: 6 }} />
-              : <><p className="ant-upload-drag-icon"><InboxOutlined /></p><p className="ant-upload-text">Click or drag an image here</p><p className="ant-upload-hint">or leave empty to AI-generate it</p></>}
+              : <><p className="ant-upload-drag-icon"><InboxOutlined /></p><p className="ant-upload-text">Click or drag an image here</p><p className="ant-upload-hint">or leave empty to use the default logo</p></>}
           </Upload.Dragger>
         </Form.Item>
 
         <Form.Item label="Badge shape" required>
           <Space wrap size={8}>
-            {BADGE_SHAPES.map(s => <ShapeTile key={s.key} shape={s} imageUrl={imgUrl} selected={shape === s.key} onClick={() => setShape(s.key)} />)}
+            {BADGE_SHAPES.map(s => <ShapeTile key={s.key} shape={s} imageUrl={imgUrl || logoImage} selected={shape === s.key} onClick={() => setShape(s.key)} />)}
           </Space>
         </Form.Item>
 
