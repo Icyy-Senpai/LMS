@@ -3,6 +3,7 @@ import { Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, Mo
 import { UserOutlined, DashboardOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, FolderOpenOutlined, MailOutlined, CrownOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import CourseWorkspace from './CourseWorkspace';
+import SubjectBlocks from './SubjectBlocks';
 import Network from '../Shared/Network';
 import Forum from '../Shared/Forum';
 import Mailbox from '../Shared/Mailbox';
@@ -16,7 +17,10 @@ const { Title, Text, Paragraph } = Typography;
 // `isDean` is passed by DeanDashboard. A Dean has every teacher feature plus the Dean's Office tab.
 export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDean = false }) {
   const [activeTab, setActiveTab] = useState(isDean ? 'dean' : 'dashboard');
-  const [selectedCourse, setSelectedCourse] = useState(null);
+  // Subject -> its blocks page (SubjectBlocks) -> one block's CourseWorkspace.
+  const [selectedCourse, setSelectedCourseState] = useState(null);
+  const [selectedBlock, setSelectedBlock] = useState(null);
+  const setSelectedCourse = (course) => { setSelectedCourseState(course); setSelectedBlock(null); };
   const [forumCourseCode, setForumCourseCode] = useState(null); 
 
   const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
@@ -40,24 +44,24 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
 
   useEffect(() => {
     if (selectedCourse) {
-      window.history.pushState(null, '', `/course/${selectedCourse.code}`);
-      document.title = `eLMS | ${selectedCourse.code}`;
+      const path = `/course/${encodeURIComponent(selectedCourse.code)}${selectedBlock ? `/block/${encodeURIComponent(selectedBlock.code)}` : ''}`;
+      window.history.pushState(null, '', path);
+      document.title = `eLMS | ${selectedCourse.code}${selectedBlock ? ` · ${selectedBlock.code}` : ''}`;
     } else {
       window.history.pushState(null, '', `/${activeTab}`);
       document.title = `eLMS | ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`;
     }
-  }, [activeTab, selectedCourse]);
+  }, [activeTab, selectedCourse, selectedBlock]);
 
-  // The user object is a login-time snapshot. Re-read it once so a changed block or a change to isDean
-  // (promotion / demotion by an admin) is picked up; App swaps to the matching dashboard if isDean changed.
+  // The user object is a login-time snapshot. Re-read it once so a change to isDean (promotion / demotion by an
+  // admin) is picked up; App swaps to the matching dashboard if isDean changed.
   useEffect(() => {
     let cancelled = false;
     api.get(`/user/${user.schoolId}`).then(res => {
       const fresh = res.data?.user;
       if (cancelled || !res.data?.success || !fresh) return;
       const roleChanged = (fresh.isDean === true) !== (user.isDean === true);
-      const blockChanged = (fresh.block || '') !== (user.block || '');
-      if ((roleChanged || blockChanged) && typeof onUpdateProfile === 'function') {
+      if (roleChanged && typeof onUpdateProfile === 'function') {
         onUpdateProfile({ ...user, ...fresh, isDean: fresh.isDean === true });
       }
     }).catch(() => { /* non-critical */ });
@@ -65,17 +69,14 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.schoolId]);
 
-  // Fetch Courses (re-run by the Dean's Office when a Dean assigns / releases a course for themselves)
+  // My subjects, each with the blocks I teach it in (re-run by the Dean's Office when a Dean changes assignments)
   const fetchCourses = useCallback(async () => {
     try {
-      const response = await api.get('/courses');
-      if (response.data.success) {
-        const assigned = response.data.courses.filter(c => c.instructorID === user.schoolId);
-        setMyCourses(assigned);
-      }
+      const response = await api.get('/staff/my-subjects');
+      if (response.data.success) setMyCourses(response.data.subjects);
     } catch (error) { message.error('Failed to load courses'); }
     finally { setLoadingCourses(false); }
-  }, [user.schoolId]);
+  }, []);
   useEffect(() => { fetchCourses(); }, [fetchCourses]);
 
   // Fetch Global Notifications
@@ -99,19 +100,21 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
 
       for (let course of myCourses) {
         try {
-          const [contentRes, assRes] = await Promise.all([
-            api.get(`/instructor/course/${course.code}`),
-            api.get(`/assignments/${course.code}`)
+          // Content is per block: read the announcements of every block I teach this course in.
+          const blockCodes = (course.blocks || []).map(b => b.code);
+          const [contentResList, assRes] = await Promise.all([
+            Promise.all(blockCodes.map(b => api.get(`/instructor/course/${encodeURIComponent(course.code)}`, { params: { block: b } }))),
+            api.get(`/assignments/${encodeURIComponent(course.code)}`, { params: { block: blockCodes.join(',') || undefined } })
           ]);
 
-          if (contentRes.data.success && contentRes.data.content?.announcements) {
-            contentRes.data.content.announcements.forEach(ann => {
+          contentResList.forEach((contentRes, i) => {
+            (contentRes.data.success ? contentRes.data.content?.announcements || [] : []).forEach(ann => {
               const annDate = new Date(ann.date);
               if ((now - annDate) / (1000 * 60 * 60 * 24) <= 3) {
-                alerts.push({ id: `ann-${Math.random()}`, type: 'Announcement', tab: 'announcements', courseCode: course.code, title: `Announcement: ${ann.title}`, description: ann.content, date: annDate, isUrgent: false });
+                alerts.push({ id: `ann-${Math.random()}`, type: 'Announcement', tab: 'announcements', courseCode: course.code, title: `Announcement (${blockCodes[i]}): ${ann.title}`, description: ann.content, date: annDate, isUrgent: false });
               }
             });
-          }
+          });
 
           if (assRes.data.success) {
             assRes.data.assignments.forEach(a => {
@@ -244,7 +247,8 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
   if (loadingCourses) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><Spin size="large" /></div>;
 
   const getHeaderTitle = () => {
-    if (selectedCourse) return `${selectedCourse.code} Workspace`;
+    if (selectedCourse && selectedBlock) return `${selectedCourse.code} · Block ${selectedBlock.code}`;
+    if (selectedCourse) return `${selectedCourse.code} Blocks`;
     if (activeTab === 'dean') return "Dean's Office";
     if (activeTab === 'profile') return `Prof. ${user.lastName} | Profile`;
     return activeTab.replace('-', ' ');
@@ -360,7 +364,11 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
           </Space>
         </Header>
         <Content style={{ margin: '24px' }}>
-          {selectedCourse ? <CourseWorkspace course={selectedCourse} teacher={user} onBack={() => setSelectedCourse(null)} /> : (
+          {selectedCourse ? (
+            selectedBlock
+              ? <CourseWorkspace key={`${selectedCourse.code}-${selectedBlock.code}`} course={myCourses.find(c => c.code === selectedCourse.code) || selectedCourse} block={selectedBlock.code} teacher={user} onBack={() => setSelectedBlock(null)} />
+              : <SubjectBlocks course={myCourses.find(c => c.code === selectedCourse.code) || selectedCourse} onOpenBlock={setSelectedBlock} onBack={() => setSelectedCourse(null)} />
+          ) : (
             <>
               {activeTab === 'dashboard' && (
                 <Row gutter={[24, 24]} justify="space-between">
@@ -372,7 +380,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
                           <Col xs={24} sm={12} md={12} xl={8} key={course.code}>
                             <Card hoverable bodyStyle={{ padding: 0 }} onClick={() => setSelectedCourse(course)}>
                               <div style={{ height: 60, backgroundColor: course.color || '#c62828' }} />
-                              <div style={{ padding: 16 }}><Text type="secondary" strong>{course.code}</Text><Title level={5} style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</Title><Space style={{ marginTop: 8 }}><Tag color="default">{course.targetProgram}</Tag><Tag color="red">{course.targetYear}</Tag></Space></div>
+                              <div style={{ padding: 16 }}><Text type="secondary" strong>{course.code}</Text><Title level={5} style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</Title><Space wrap style={{ marginTop: 8 }}><Tag color="default">{course.targetProgram}</Tag><Tag color="red">{course.targetYear}</Tag><Tag color="blue">{course.blocks?.length || 0} block{course.blocks?.length === 1 ? '' : 's'}</Tag></Space></div>
                             </Card>
                           </Col>
                         ))}
@@ -431,7 +439,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
                         <Title level={3} style={{ margin: 0 }}>{user.firstName} {user.middleName} {user.lastName}</Title>
                         <Text type="secondary" style={{ fontSize: '15px' }}>{user.schoolId}   {user.department || 'Faculty Member'}</Text><br />
                         <Text>{user.schoolEmail}</Text>
-                        <div style={{ marginTop: 8 }}><Tag color="green">Faculty / Instructor</Tag>{isDean && <Tag color="gold" icon={<CrownOutlined />}>Dean</Tag>}{user.block && <Tag color="blue">Block {user.block}</Tag>}</div>
+                        <div style={{ marginTop: 8 }}><Tag color="green">Faculty / Instructor</Tag>{isDean && <Tag color="gold" icon={<CrownOutlined />}>Dean</Tag>}</div>
                       </Col>
                     </Row>
                   </Card>
@@ -448,7 +456,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
                         <Text type="secondary"><strong>Mobile Number:</strong> {user.mobileNum}</Text><br/>
                         <Text type="secondary"><strong>Present Address:</strong> {user.presentAddress}</Text>
                       </Tabs.TabPane>
-                      <Tabs.TabPane tab="Assigned Subjects" key="courses"><List dataSource={myCourses} locale={{ emptyText: 'No assigned subjects found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Space><Tag color="red">{course.code}</Tag><Text type="secondary" style={{ fontSize: '12px' }}>{course.targetProgram} ({course.targetYear})</Text></Space>} /></List.Item>)} /></Tabs.TabPane>
+                      <Tabs.TabPane tab="Assigned Subjects" key="courses"><List dataSource={myCourses} locale={{ emptyText: 'No assigned subjects found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Space wrap><Tag color="red">{course.code}</Tag><Text type="secondary" style={{ fontSize: '12px' }}>{course.targetProgram} ({course.targetYear})</Text>{(course.blocks || []).map(b => <Tag key={b.code} color="blue">{b.code}</Tag>)}</Space>} /></List.Item>)} /></Tabs.TabPane>
                     </Tabs>
                   </Card>
                 </div>

@@ -8,9 +8,13 @@ const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 const Notification = require('../models/Notification');
 const Department = require('../models/Department');
+const Block = require('../models/Block');
 const { getNextSchoolId } = require('../utils/schoolId');
+const { findBlock, assignStudentToBlock } = require('../utils/blocks');
+const { getBlockContent } = require('../utils/courseContent');
 
 const fail = (res, err, fallback, code = 500) => {
+  if (err && err.status) return res.status(err.status).json({ success: false, message: err.message });
   if (err && err.code === 11000) {
     const field = Object.keys(err.keyPattern || {})[0] || 'value';
     return res.status(409).json({ success: false, message: `That ${field} is already in use.` });
@@ -30,17 +34,17 @@ const pick = (obj, keys) => keys.reduce((acc, k) => (obj[k] !== undefined ? { ..
 /* ------------------------------------------------------------------ */
 const getSystemStats = async (req, res) => {
   try {
-    const [students, teachers, admins, courses, forums, assignments, submissions, ungraded, sSusp, tSusp] = await Promise.all([
+    // No assignment / quiz / submission figures: grading is for Teachers and Deans only, not admins.
+    const [students, teachers, admins, courses, forums, sSusp, tSusp] = await Promise.all([
       Student.countDocuments(), Teacher.countDocuments(), Admin.countDocuments(),
-      Course.countDocuments(), Forum.countDocuments(), Assignment.countDocuments(),
-      Submission.countDocuments(), Submission.countDocuments({ grade: null }),
+      Course.countDocuments(), Forum.countDocuments(),
       Student.countDocuments({ status: 'Suspended' }), Teacher.countDocuments({ status: 'Suspended' })
     ]);
     res.json({
       success: true,
       stats: {
         users: students + teachers + admins, students, teachers, admins,
-        courses, forums, assignments, submissions, ungraded, suspended: sSusp + tSusp
+        courses, forums, suspended: sSusp + tSusp
       }
     });
   } catch (err) { fail(res, err, 'Failed to load stats.'); }
@@ -73,9 +77,11 @@ const COMMON_FIELDS = [
   'permanentAddress', 'permanentProvince', 'permanentCmun', 'permanentHouseNum', 'permanentBrgy', 'permanentPostal',
   'schoolEmail', 'department', 'bio'
 ];
-const STUDENT_ONLY = ['yearLevel', 'block'];
+// A student's block is NOT written directly: it goes through utils/blocks.js assignStudentToBlock so the Block
+// document stays in step (see createUser / updateUser).
+const STUDENT_ONLY = ['yearLevel'];
 // Teacher-only: isDean decides whether the account logs in to the Teacher or the Dean's dashboard.
-// (A teacher's block is changed by a Dean, not here.)
+// (Teachers are placed in blocks per subject by a Dean, see Block.courseProfessors.)
 const TEACHER_ONLY = ['isDean'];
 const allowedFor = (accountType) => accountType === 'Student' ? [...COMMON_FIELDS, ...STUDENT_ONLY] : [...COMMON_FIELDS, ...TEACHER_ONLY];
 
@@ -117,6 +123,15 @@ const createUser = async (req, res) => {
 
     const data = withDefaults(pick(req.body, allowedFor(accountType)));
 
+    // Students may be placed in a block straight away. Check it exists and has room before creating the account.
+    const blockCode = accountType === 'Student' && typeof req.body.block === 'string' ? req.body.block.trim() : '';
+    if (blockCode) {
+      const target = await findBlock(blockCode);
+      if (target.maxAmountOfStudents && target.studentsRegistered.length >= target.maxAmountOfStudents) {
+        return res.status(400).json({ success: false, message: `Block ${target.code} is full.` });
+      }
+    }
+
     // The School ID is always assigned by the server (next number after the highest existing ID);
     // any schoolId sent by the client is ignored. Retry if another admin grabbed the same number first.
     let created;
@@ -129,6 +144,10 @@ const createUser = async (req, res) => {
         const clash = err && err.code === 11000 && err.keyPattern && err.keyPattern.schoolId;
         if (!clash || attempt === 4) throw err;
       }
+    }
+    if (blockCode) {
+      // autoEnrollBlockSubjects: also enrol the student in every subject registered to the block.
+      created = (await assignStudentToBlock({ studentSchoolId: created.schoolId, blockCode, autoEnroll: req.body.autoEnrollBlockSubjects === true })).student;
     }
     const out = created.toObject(); delete out.password;
     res.json({ success: true, message: `${accountType} account created. School ID: ${created.schoolId}`, user: out });
@@ -162,6 +181,10 @@ const updateUser = async (req, res) => {
       const data = pick(req.body, allowedFor(accountType));
       if (data.middleName && data.middleName !== 'N/A' && data.middleInitial === undefined) data.middleInitial = data.middleName.trim()[0].toUpperCase();
       updated = await Model.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+      const newBlock = accountType === 'Student' && typeof req.body.block === 'string' ? req.body.block.trim() : undefined;
+      if (updated && newBlock !== undefined && newBlock !== (updated.block || '')) {
+        updated = (await assignStudentToBlock({ studentSchoolId: updated.schoolId, blockCode: newBlock, autoEnroll: req.body.autoEnrollBlockSubjects === true })).student;
+      }
     }
     if (!updated) return res.status(404).json({ success: false, message: 'User not found.' });
     const out = updated.toObject(); delete out.password;
@@ -206,6 +229,10 @@ const deleteUser = async (req, res) => {
     } else if (type === 'Student') {
       const s = await Student.findByIdAndDelete(id);
       if (s) {
+        await Block.updateMany({ 'studentsRegistered.schoolId': s.schoolId }, [
+          { $set: { studentsRegistered: { $filter: { input: '$studentsRegistered', cond: { $ne: ['$$this.schoolId', s.schoolId] } } } } },
+          { $set: { amountOfStudents: { $size: '$studentsRegistered' } } }
+        ], { updatePipeline: true });
         await Submission.deleteMany({ studentUsername: s.schoolId });
         await Notification.deleteMany({ userSchoolId: s.schoolId });
       }
@@ -213,6 +240,7 @@ const deleteUser = async (req, res) => {
       const t = await Teacher.findByIdAndDelete(id);
       if (t) {
         await Course.updateMany({ instructorID: t.schoolId }, { instructorID: '', instructor: 'TBA' });
+        await Block.updateMany({}, { $pull: { courseProfessors: { teacherId: t._id } } });
         await Notification.deleteMany({ userSchoolId: t.schoolId });
       }
     } else return res.status(400).json({ success: false, message: 'Invalid account type.' });
@@ -250,7 +278,6 @@ const getAllCourses = async (req, res) => {
     const courses = await Course.find({}).sort({ code: 1 }).lean();
     for (const c of courses) {
       c.studentCount = await Student.countDocuments({ 'enrolledCourseSubjects.code': c.code });
-      c.assignmentCount = await Assignment.countDocuments({ courseCode: c.code });
     }
     res.json({ success: true, courses });
   } catch (err) { fail(res, err, 'Failed to load courses.'); }
@@ -279,8 +306,9 @@ const updateCourse = async (req, res) => {
 const deleteCourse = async (req, res) => {
   try {
     const { code } = req.params;
-    await Course.findOneAndDelete({ code });
-    await CourseContent.findOneAndDelete({ courseCode: code });
+    const removed = await Course.findOneAndDelete({ code });
+    if (removed) await Block.updateMany({}, { $pull: { assignedSubjects: { subjectId: removed._id }, courseProfessors: { subjectId: removed._id } } });
+    await CourseContent.deleteMany({ courseCode: code }); // every block's copy
     await Forum.deleteMany({ courseCode: code });
     await Submission.deleteMany({ courseCode: code });
     await Assignment.deleteMany({ courseCode: code });
@@ -351,13 +379,15 @@ const removeUserCourse = async (req, res) => {
 const getCourseContent = async (req, res) => {
   try {
     const { code } = req.params;
-    let content = await CourseContent.findOne({ courseCode: code }).lean();
-    if (!content) content = (await new CourseContent({ courseCode: code }).save()).toObject();
+    const content = (await getBlockContent(code, contentBlock(req))).toObject();
     // Strip base64 blobs so the payload stays small
     content.materials = (content.materials || []).map(m => ({ _id: m._id, title: m.title, fileUrl: m.fileUrl, fileName: m.fileName, hasFile: !!m.fileData }));
     res.json({ success: true, content });
   } catch (err) { fail(res, err, 'Failed to load course content.'); }
 };
+
+// Content is per block: ?block=CODE picks the block, no block = the course-wide (pre-block) document.
+const contentBlock = (req) => (typeof req.query.block === 'string' ? req.query.block.trim() : '');
 
 // Add / edit / delete a single item in one of the content arrays.
 const ARRAYS = { announcements: ['title', 'content'], videos: ['title', 'url'], materials: ['title', 'fileUrl'] };
@@ -368,7 +398,8 @@ const addContentItem = async (req, res) => {
     if (!ARRAYS[kind]) return res.status(400).json({ success: false, message: 'Invalid content type.' });
     const item = pick(req.body, ARRAYS[kind]);
     if (!item.title) return res.status(400).json({ success: false, message: 'Title is required.' });
-    const updated = await CourseContent.findOneAndUpdate({ courseCode: code }, { $push: { [kind]: item } }, { new: true, upsert: true });
+    await getBlockContent(code, contentBlock(req));
+    const updated = await CourseContent.findOneAndUpdate({ courseCode: code, block: contentBlock(req) }, { $push: { [kind]: item } }, { new: true });
     res.json({ success: true, message: 'Added.', item: updated[kind][updated[kind].length - 1] });
   } catch (err) { fail(res, err, 'Failed to add item.'); }
 };
@@ -379,7 +410,7 @@ const updateContentItem = async (req, res) => {
     if (!ARRAYS[kind]) return res.status(400).json({ success: false, message: 'Invalid content type.' });
     const set = {};
     Object.entries(pick(req.body, ARRAYS[kind])).forEach(([k, v]) => { set[`${kind}.$.${k}`] = v; });
-    const updated = await CourseContent.findOneAndUpdate({ courseCode: code, [`${kind}._id`]: itemId }, { $set: set }, { new: true });
+    const updated = await CourseContent.findOneAndUpdate({ courseCode: code, block: contentBlock(req), [`${kind}._id`]: itemId }, { $set: set }, { new: true });
     if (!updated) return res.status(404).json({ success: false, message: 'Item not found.' });
     res.json({ success: true, message: 'Saved.' });
   } catch (err) { fail(res, err, 'Failed to update item.'); }
@@ -389,60 +420,9 @@ const deleteContentItem = async (req, res) => {
   const { code, kind, itemId } = req.params;
   try {
     if (!ARRAYS[kind]) return res.status(400).json({ success: false, message: 'Invalid content type.' });
-    await CourseContent.updateOne({ courseCode: code }, { $pull: { [kind]: { _id: itemId } } });
+    await CourseContent.updateOne({ courseCode: code, block: contentBlock(req) }, { $pull: { [kind]: { _id: itemId } } });
     res.json({ success: true, message: 'Removed.' });
   } catch (err) { fail(res, err, 'Failed to remove item.'); }
-};
-
-/* ------------------------------------------------------------------ */
-/*  ASSIGNMENTS / QUIZZES & SUBMISSIONS                                */
-/* ------------------------------------------------------------------ */
-const getAssignments = async (req, res) => {
-  try {
-    const query = req.query.courseCode ? { courseCode: req.query.courseCode } : {};
-    const list = await Assignment.find(query, '-attachedFiles.fileData').sort({ deadline: -1 }).lean();
-    for (const a of list) {
-      a.submissionCount = await Submission.countDocuments({ assignmentId: a._id });
-      a.ungradedCount = await Submission.countDocuments({ assignmentId: a._id, grade: null });
-      a.questionCount = (a.questions || []).length;
-      delete a.questions;
-    }
-    res.json({ success: true, assignments: list });
-  } catch (err) { fail(res, err, 'Failed to load assignments.'); }
-};
-
-const updateAssignment = async (req, res) => {
-  try {
-    const data = pick(req.body, ['title', 'instructions', 'deadline', 'autoClose', 'maxGrade']);
-    const updated = await Assignment.findByIdAndUpdate(req.params.id, data, { new: true });
-    if (!updated) return res.status(404).json({ success: false, message: 'Assignment not found.' });
-    res.json({ success: true, message: 'Assignment updated.' });
-  } catch (err) { fail(res, err, 'Failed to update assignment.'); }
-};
-
-const deleteAssignment = async (req, res) => {
-  try {
-    await Submission.deleteMany({ assignmentId: req.params.id });
-    await Assignment.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Assignment and its submissions deleted.' });
-  } catch (err) { fail(res, err, 'Failed to delete assignment.'); }
-};
-
-const getSubmissions = async (req, res) => {
-  try {
-    const subs = await Submission.find({ assignmentId: req.params.id }, '-fileData -answers').sort({ submittedAt: -1 }).lean();
-    const ids = subs.map(s => s.studentUsername);
-    const students = await Student.find({ schoolId: { $in: ids } }, 'schoolId firstName lastName').lean();
-    const byId = Object.fromEntries(students.map(s => [s.schoolId, `${s.lastName}, ${s.firstName}`]));
-    res.json({ success: true, submissions: subs.map(s => ({ ...s, studentName: byId[s.studentUsername] || s.studentUsername })) });
-  } catch (err) { fail(res, err, 'Failed to load submissions.'); }
-};
-
-const deleteSubmission = async (req, res) => {
-  try {
-    await Submission.findByIdAndDelete(req.params.id);
-    res.json({ success: true, message: 'Submission deleted (the student can resubmit).' });
-  } catch (err) { fail(res, err, 'Failed to delete submission.'); }
 };
 
 /* ------------------------------------------------------------------ */
@@ -654,7 +634,6 @@ module.exports = {
   getDepartments, createDepartment, updateDepartment, deleteDepartment,
   getAllCourses, createCourse, updateCourse, deleteCourse, getCourseRoster, assignUserCourse, removeUserCourse,
   getCourseContent, addContentItem, updateContentItem, deleteContentItem,
-  getAssignments, updateAssignment, deleteAssignment, getSubmissions, deleteSubmission,
   getAllForums, createForum, updateForum, deleteForum, addForumReply, updateForumReply, deleteForumReply,
   broadcast, updateOwnProfile, changeOwnPassword
 };

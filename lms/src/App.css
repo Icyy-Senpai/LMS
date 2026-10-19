@@ -13,18 +13,6 @@
   transition: background 0.3s;
 }
 
-.login-page.admin {
-  background:
-    linear-gradient(135deg, rgba(198, 40, 40, 0.35) 0%, transparent 50%),
-    var(--charcoal);
-}
-
-.login-toggle {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-}
-
 .login-card {
   width: 100%;
   max-width: 400px;
@@ -39,10 +27,6 @@
   color: var(--white);
   padding: 28px 32px 22px;
   text-align: center;
-}
-
-.login-page.admin .login-card-banner {
-  background: linear-gradient(135deg, var(--red-dark), #7f0000);
 }
 
 .login-card-banner h2 {

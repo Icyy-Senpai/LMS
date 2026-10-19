@@ -3,34 +3,38 @@ const Teacher = require('../models/Teacher');
 const Course = require('../models/Course');
 const Notification = require('../models/Notification');
 const Block = require('../models/Block');
-const { setCourseInstructor } = require('./adminController');
 const { markCourseComplete } = require('../utils/courseCompletion');
-const { listBlocks, syncBlockCollection } = require('../utils/blocks');
+const { listBlocks, findBlock, assignStudentToBlock, enrollBlockStudents } = require('../utils/blocks');
 
 const teacherName = (t) => `Prof. ${t.lastName}, ${t.firstName}`;
 
 const sendErr = (res, err, fallback) => {
   if (err && err.status) return res.status(err.status).json({ success: false, message: err.message });
+  if (err && err.code === 11000) return res.status(409).json({ success: false, message: 'That student is already registered in another block.' });
   console.error(fallback, err);
   res.status(500).json({ success: false, message: fallback });
 };
 const fail = (status, message) => Object.assign(new Error(message), { status });
+// A Dean can only place teachers of their own department in blocks. A Dean with no department set can place no one.
+const norm = (d) => String(d || '').trim().toLowerCase();
+const sameDepartment = (teacher, dean) => Boolean(norm(dean.department)) && norm(teacher.department) === norm(dean.department);
 
-// Returns the trimmed block code if it is an existing block, otherwise throws a 400.
-const validBlock = async (value) => {
-  const code = typeof value === 'string' ? value.trim() : '';
-  if (!code) throw fail(400, 'Please choose a block.');
-  const known = await listBlocks();
-  if (!known.some(b => b.code === code)) throw fail(400, `Block "${code}" does not exist.`);
-  return code;
-};
-
-// A block created with a maxAmountOfStudents cap cannot take more students than that.
-const assertBlockHasRoom = async (code) => {
-  const doc = await Block.findOne({ code }, 'maxAmountOfStudents').lean();
-  if (!doc || !doc.maxAmountOfStudents) return;
-  const current = await Student.countDocuments({ block: code });
-  if (current >= doc.maxAmountOfStudents) throw fail(400, `Block ${code} is full (${current}/${doc.maxAmountOfStudents} students).`);
+// Moves a student to a block (see utils/blocks.js) and tells them about it.
+const moveStudent = async ({ studentId, block, autoEnroll, by }) => {
+  const result = await assignStudentToBlock({ studentSchoolId: studentId, blockCode: block, autoEnroll: autoEnroll === true });
+  const changes = [
+    result.enrolled.length ? ` You were enrolled in ${result.enrolled.join(', ')}.` : '',
+    result.unenrolled.length ? ` You were removed from ${result.unenrolled.join(', ')}.` : ''
+  ].join('');
+  await new Notification({
+    userSchoolId: studentId, title: 'Block Changed', type: 'block',
+    message: `${by} moved you from block ${result.oldBlock || '(none)'} to block ${result.newBlock}.${changes}`
+  }).save();
+  const summary = [
+    result.enrolled.length ? `enrolled in ${result.enrolled.length} subject(s)` : '',
+    result.unenrolled.length ? `removed from ${result.unenrolled.length} subject(s)` : ''
+  ].filter(Boolean).join(', ');
+  return { result, message: `Student moved to block ${result.newBlock}${summary ? ` (${summary})` : ''}.` };
 };
 
 /* ------------------------------------------------------------------ */
@@ -41,73 +45,168 @@ const getBlocks = async (req, res) => {
   catch (err) { sendErr(res, err, 'Failed to load blocks.'); }
 };
 
-// A teacher (or dean) may reassign students who are registered in, or have completed, one of their own courses.
+// The subjects this teacher handles, each with the blocks they teach it in (Block.courseProfessors).
+// Courses they lead (Course.instructorID) but teach in no block yet are listed too, with no blocks.
+const getMySubjects = async (req, res) => {
+  try {
+    const t = req.teacher;
+    const [blocks, leadCourses] = await Promise.all([
+      Block.find({ 'courseProfessors.teacherId': t._id }).sort({ code: 1 }).lean(),
+      Course.find({ instructorID: t.schoolId }).lean()
+    ]);
+    const blockCourseIds = blocks.flatMap(b => b.courseProfessors.filter(p => String(p.teacherId) === String(t._id)).map(p => p.subjectId));
+    const courses = [...leadCourses, ...(await Course.find({ _id: { $in: blockCourseIds } }).lean())];
+
+    const byId = new Map();
+    courses.forEach(c => { if (!byId.has(String(c._id))) byId.set(String(c._id), { ...c, isLead: c.instructorID === t.schoolId, blocks: [] }); });
+    blocks.forEach(b => b.courseProfessors
+      .filter(p => String(p.teacherId) === String(t._id) && byId.has(String(p.subjectId)))
+      .forEach(p => byId.get(String(p.subjectId)).blocks.push({
+        code: b.code, name: b.name, studentCount: (b.studentsRegistered || []).length, maxAmountOfStudents: b.maxAmountOfStudents ?? null
+      })));
+
+    res.json({ success: true, subjects: [...byId.values()].sort((a, b) => a.code.localeCompare(b.code)) });
+  } catch (err) { sendErr(res, err, 'Failed to load your subjects.'); }
+};
+
+// A teacher (or dean) may move a student who is currently in one of the blocks they teach.
 const reassignStudentBlock = async (req, res) => {
-  const { studentId, block } = req.body;
+  const { studentId, block, autoEnroll } = req.body;
   try {
     if (!studentId) throw fail(400, 'studentId is required.');
-    const newBlock = await validBlock(block);
-
-    const myCodes = (await Course.find({ instructorID: req.teacher.schoolId }, 'code').lean()).map(c => c.code);
-    const student = await Student.findOne({ schoolId: studentId });
+    const student = await Student.findOne({ schoolId: studentId }, 'block').lean();
     if (!student) throw fail(404, 'Student not found.');
-    const inMyClass = [...(student.enrolledCourseSubjects || []), ...(student.completedCourses || [])].some(c => myCodes.includes(c.code));
-    if (!inMyClass) throw fail(403, 'You can only reassign students who are in one of your courses.');
-    if (student.block === newBlock) throw fail(400, `The student is already in block ${newBlock}.`);
-    await assertBlockHasRoom(newBlock);
+    const mine = student.block && await Block.exists({ code: student.block, 'courseProfessors.teacherId': req.teacher._id });
+    if (!mine && req.teacher.isDean !== true) throw fail(403, 'You can only move students who are in one of the blocks you teach.');
 
-    const oldBlock = student.block;
-    await Student.updateOne({ schoolId: studentId }, { block: newBlock });
-    await syncBlockCollection(student, newBlock);
-    await new Notification({
-      userSchoolId: studentId, title: 'Block Changed', type: 'block',
-      message: `${teacherName(req.teacher)} moved you from block ${oldBlock || '(none)'} to block ${newBlock}.`
-    }).save();
-
-    res.json({ success: true, message: `Student moved to block ${newBlock}.`, block: newBlock });
+    const { result, message } = await moveStudent({ studentId, block, autoEnroll, by: teacherName(req.teacher) });
+    res.json({ success: true, message, block: result.newBlock });
   } catch (err) { sendErr(res, err, 'Failed to reassign the student.'); }
 };
 
 /* ------------------------------------------------------------------ */
 /*  DEANS ONLY                                                         */
 /* ------------------------------------------------------------------ */
-const FIELDS = 'schoolId firstName lastName middleName department status isDean block';
+const FIELDS = 'schoolId firstName lastName middleName department status isDean';
 
-// Students and teachers only (a Dean has no business seeing Admin accounts).
+// Students and teachers only (a Dean has no business seeing Admin accounts). Each teacher comes with the
+// blocks / subjects they teach.
 const getDeanUsers = async (req, res) => {
   try {
-    const [students, teachers] = await Promise.all([
-      Student.find({}, `${FIELDS} yearLevel enrolledCourseSubjects completedCourses`).lean(),
-      Teacher.find({}, `${FIELDS} courseSubjectHeld`).lean()
+    const [students, teachers, blocks, courses] = await Promise.all([
+      Student.find({}, `${FIELDS} block yearLevel enrolledCourseSubjects completedCourses`).lean(),
+      Teacher.find({}, `${FIELDS} courseSubjectHeld`).lean(),
+      Block.find({}, 'code courseProfessors').lean(),
+      Course.find({}, 'code').lean()
     ]);
+    const codeOf = new Map(courses.map(c => [String(c._id), c.code]));
+    const loads = new Map(); // teacher _id -> [{ block, course }]
+    blocks.forEach(b => (b.courseProfessors || []).forEach(p => {
+      const key = String(p.teacherId);
+      if (!loads.has(key)) loads.set(key, []);
+      loads.get(key).push({ block: b.code, course: codeOf.get(String(p.subjectId)) || '?' });
+    }));
     res.json({
       success: true,
       users: [
         ...students.map(u => ({ ...u, accountType: 'Student' })),
-        ...teachers.map(u => ({ ...u, accountType: 'Teacher', isDean: u.isDean === true }))
+        ...teachers.map(u => ({ ...u, accountType: 'Teacher', isDean: u.isDean === true, teaching: loads.get(String(u._id)) || [] }))
       ]
     });
   } catch (err) { sendErr(res, err, 'Failed to load users.'); }
 };
 
-const reassignTeacherBlock = async (req, res) => {
-  const { teacherId, block } = req.body;
+// A Dean may move any student to any block.
+const reassignStudentBlockAsDean = async (req, res) => {
+  const { studentId, block, autoEnroll } = req.body;
   try {
-    if (!teacherId) throw fail(400, 'teacherId is required.');
-    const newBlock = await validBlock(block);
-    const teacher = await Teacher.findOne({ schoolId: teacherId });
-    if (!teacher) throw fail(404, 'Teacher not found.');
-    if (teacher.block === newBlock) throw fail(400, `${teacherName(teacher)} is already in block ${newBlock}.`);
+    if (!studentId) throw fail(400, 'studentId is required.');
+    const { result, message } = await moveStudent({ studentId, block, autoEnroll, by: `${teacherName(req.teacher)} (Dean)` });
+    res.json({ success: true, message, block: result.newBlock });
+  } catch (err) { sendErr(res, err, 'Failed to reassign the student.'); }
+};
 
-    const oldBlock = teacher.block;
-    await Teacher.updateOne({ schoolId: teacherId }, { block: newBlock });
-    await new Notification({
-      userSchoolId: teacherId, title: 'Block Reassigned', type: 'block',
-      message: `${teacherName(req.teacher)} (Dean) reassigned you from block ${oldBlock || '(none)'} to block ${newBlock}.`
-    }).save();
+// Registers a subject (course) to a block. Optionally enrols the block's students in it.
+const addBlockSubject = async (req, res) => {
+  const { courseCode, enrollStudents } = req.body;
+  try {
+    const block = await findBlock(req.params.code);
+    const course = await Course.findOne({ code: courseCode });
+    if (!course) throw fail(404, 'Course not found.');
+    if (block.assignedSubjects.some(s => String(s.subjectId) === String(course._id))) throw fail(400, `${course.code} is already registered to block ${block.code}.`);
 
-    res.json({ success: true, message: `${teacherName(teacher)} reassigned to block ${newBlock}.`, block: newBlock });
-  } catch (err) { sendErr(res, err, 'Failed to reassign the teacher.'); }
+    block.assignedSubjects.push({ subjectId: course._id, code: course.code });
+    await block.save();
+    const enrolled = enrollStudents === true ? await enrollBlockStudents(block, course.code, true) : 0;
+    res.json({ success: true, message: `${course.code} added to block ${block.code}${enrollStudents === true ? ` (${enrolled} student(s) enrolled)` : ''}.` });
+  } catch (err) { sendErr(res, err, 'Failed to add the subject.'); }
+};
+
+// Removes a subject from a block, together with its professor there. ?unenroll=true also un-enrols the block's students.
+const removeBlockSubject = async (req, res) => {
+  try {
+    const block = await findBlock(req.params.code);
+    const { courseCode } = req.params;
+    const entry = block.assignedSubjects.find(s => s.code === courseCode);
+    if (!entry) throw fail(404, 'That subject is not registered to this block.');
+    const subjectId = String(entry.subjectId);
+
+    const prof = block.courseProfessors.find(p => String(p.subjectId) === subjectId);
+    block.assignedSubjects = block.assignedSubjects.filter(s => String(s.subjectId) !== subjectId);
+    block.courseProfessors = block.courseProfessors.filter(p => String(p.subjectId) !== subjectId);
+    await block.save();
+
+    if (prof) {
+      const t = await Teacher.findById(prof.teacherId, 'schoolId').lean();
+      if (t) await new Notification({
+        userSchoolId: t.schoolId, title: 'Block Assignment', type: 'block',
+        message: `${teacherName(req.teacher)} (Dean) removed ${courseCode} from block ${block.code}. You no longer teach it there.`
+      }).save();
+    }
+    const unenrolled = req.query.unenroll === 'true' ? await enrollBlockStudents(block, courseCode, false) : 0;
+    res.json({ success: true, message: `${courseCode} removed from block ${block.code}${unenrolled ? ` (${unenrolled} student(s) un-enrolled)` : ''}.` });
+  } catch (err) { sendErr(res, err, 'Failed to remove the subject.'); }
+};
+
+// Sets (or clears, with an empty teacherId) the professor of one subject in one block.
+// Stored in Block.courseProfessors as { subjectId: Course._id, teacherId: Teacher._id }.
+const setBlockProfessor = async (req, res) => {
+  const { courseCode, teacherId } = req.body;
+  try {
+    const block = await findBlock(req.params.code);
+    const course = await Course.findOne({ code: courseCode });
+    if (!course) throw fail(404, 'Course not found.');
+    if (!block.assignedSubjects.some(s => String(s.subjectId) === String(course._id))) throw fail(400, `${course.code} is not registered to block ${block.code}. Add the subject first.`);
+
+    const teacher = teacherId ? await Teacher.findOne({ schoolId: teacherId }) : null;
+    if (teacherId && !teacher) throw fail(404, 'Teacher not found.');
+    if (teacher && teacher.status === 'Suspended') throw fail(400, 'That teacher account is suspended.');
+    if (teacher && !sameDepartment(teacher, req.teacher)) {
+      throw fail(403, `You can only assign teachers from your own department (${req.teacher.department || 'none set'}). ${teacherName(teacher)} is in ${teacher.department || 'no department'}.`);
+    }
+
+    const current = block.courseProfessors.find(p => String(p.subjectId) === String(course._id));
+    if (teacher && current && String(current.teacherId) === String(teacher._id)) throw fail(400, `${teacherName(teacher)} already teaches ${course.code} in this block.`);
+    // Likewise a Dean cannot remove or replace a professor who belongs to another department.
+    const currentTeacher = current ? await Teacher.findById(current.teacherId, 'firstName lastName department').lean() : null;
+    if (currentTeacher && !sameDepartment(currentTeacher, req.teacher)) {
+      throw fail(403, `${teacherName(currentTeacher)} (${currentTeacher.department || 'no department'}) teaches ${course.code} here. Only a Dean of that department can change it.`);
+    }
+
+    block.courseProfessors = block.courseProfessors.filter(p => String(p.subjectId) !== String(course._id));
+    if (teacher) block.courseProfessors.push({ subjectId: course._id, teacherId: teacher._id });
+    await block.save();
+
+    const notes = [];
+    if (current && (!teacher || String(current.teacherId) !== String(teacher._id))) {
+      const prev = await Teacher.findById(current.teacherId, 'schoolId').lean();
+      if (prev) notes.push({ userSchoolId: prev.schoolId, message: `${teacherName(req.teacher)} (Dean) unassigned you from ${course.code} in block ${block.code}.` });
+    }
+    if (teacher) notes.push({ userSchoolId: teacher.schoolId, message: `${teacherName(req.teacher)} (Dean) assigned you to teach ${course.code} - ${course.name} in block ${block.code}.` });
+    await Promise.all(notes.map(n => new Notification({ ...n, title: 'Block Assignment', type: 'block' }).save()));
+
+    res.json({ success: true, message: teacher ? `${teacherName(teacher)} now teaches ${course.code} in block ${block.code}.` : `${course.code} in block ${block.code} has no professor now.` });
+  } catch (err) { sendErr(res, err, 'Failed to set the professor.'); }
 };
 
 // A Dean may mark any registered course complete for any student (Teachers are limited to their own courses).
@@ -139,7 +238,7 @@ const createBlock = async (req, res) => {
     // Codes are compared case-insensitively against every block that exists (including ones only students use).
     if ((await listBlocks()).some(b => b.code.toLowerCase() === code.toLowerCase())) throw fail(409, `Block ${code} already exists.`);
 
-    const block = await new Block({ code, name, studentsRegistered: [], amountOfStudents: 0, maxAmountOfStudents: max }).save();
+    const block = await new Block({ code, name, assignedSubjects: [], courseProfessors: [], studentsRegistered: [], amountOfStudents: 0, maxAmountOfStudents: max }).save();
     res.json({ success: true, message: `Block ${code} created.`, block });
   } catch (err) {
     if (err && err.code === 11000) return res.status(409).json({ success: false, message: 'That block already exists.' });
@@ -147,34 +246,7 @@ const createBlock = async (req, res) => {
   }
 };
 
-// A Dean assigns (or takes over) a course for themselves. A course has one instructor, so taking over replaces
-// the current one, who is notified.
-const claimCourse = async (req, res) => {
-  try {
-    const course = await Course.findOne({ code: req.params.code });
-    if (!course) throw fail(404, 'Course not found.');
-    if (course.instructorID === req.teacher.schoolId) throw fail(400, 'You already handle this course.');
-    const previous = course.instructorID;
-    await setCourseInstructor(course.code, req.teacher.schoolId);
-    if (previous) {
-      await new Notification({
-        userSchoolId: previous, title: 'Course Reassigned', type: 'course',
-        message: `${teacherName(req.teacher)} (Dean) took over ${course.code} - ${course.name}. You are no longer its instructor.`
-      }).save();
-    }
-    res.json({ success: true, message: `You now handle ${course.code}.`, course: await Course.findOne({ code: course.code }).lean() });
-  } catch (err) { sendErr(res, err, 'Failed to assign the course to you.'); }
+module.exports = {
+  createBlock, getBlocks, getMySubjects, reassignStudentBlock, getDeanUsers, reassignStudentBlockAsDean,
+  addBlockSubject, removeBlockSubject, setBlockProfessor, completeCourseAsDean
 };
-
-// A Dean hands a course they handle back (it shows as TBA until someone is assigned).
-const releaseCourse = async (req, res) => {
-  try {
-    const course = await Course.findOne({ code: req.params.code });
-    if (!course) throw fail(404, 'Course not found.');
-    if (course.instructorID !== req.teacher.schoolId) throw fail(403, 'You do not handle this course.');
-    await setCourseInstructor(course.code, '');
-    res.json({ success: true, message: `${course.code} released. It now shows as TBA.` });
-  } catch (err) { sendErr(res, err, 'Failed to release the course.'); }
-};
-
-module.exports = { createBlock, claimCourse, releaseCourse, getBlocks, reassignStudentBlock, getDeanUsers, reassignTeacherBlock, completeCourseAsDean };

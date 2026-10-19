@@ -6,8 +6,11 @@ import ClassRoster from './ClassRoster';
 import BadgesSection from './BadgesSection';
 import api from '../../api';
 
-export default function CourseWorkspace({ course, onBack, teacher }) {
+// The workspace for one course in ONE block. Roster, grading and badges only show that block's students;
+// announcements, videos, materials and assignments belong to the course and are shared by all of its blocks.
+export default function CourseWorkspace({ course, block, onBack, teacher }) {
   const [courseContent, setCourseContent] = useState(null);
+  const [blockStudents, setBlockStudents] = useState([]);
   const [courseAssignments, setCourseAssignments] = useState([]);
   const [loadingContent, setLoadingContent] = useState(false);
 
@@ -24,8 +27,8 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
   const fetchCourseData = async () => {
     try {
       const [contentRes, assRes] = await Promise.all([
-        api.get(`/instructor/course/${course.code}`),
-        api.get(`/assignments/${course.code}`)
+        api.get(`/instructor/course/${encodeURIComponent(course.code)}`, { params: { block } }),
+        api.get(`/assignments/${encodeURIComponent(course.code)}`, { params: { block } })
       ]);
       if (contentRes.data.success) setCourseContent(contentRes.data.content);
       if (assRes.data.success) setCourseAssignments(assRes.data.assignments);
@@ -37,11 +40,16 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
   useEffect(() => {
     setLoadingContent(true);
     fetchCourseData().finally(() => setLoadingContent(false));
-  }, [course.code]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course.code, block]);
 
   const updateCourseData = async (updatedFields, callback) => {
     try {
-      const payload = { courseCode: course.code, ...courseContent, ...updatedFields };
+      const payload = {
+        courseCode: course.code, block,
+        announcements: courseContent.announcements, videos: courseContent.videos, materials: courseContent.materials,
+        ...updatedFields
+      };
       const response = await api.post('/instructor/course/update', payload);
       if (response.data.success) {
         message.success('Update successful!');
@@ -49,7 +57,7 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
         if (callback) callback();
       }
     } catch (err) {
-      message.error('Failed to update data.');
+      message.error(err?.response?.data?.message || 'Failed to update data.');
     }
   };
 
@@ -129,16 +137,17 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
 
   return (
     <div>
-      <button onClick={onBack} style={{ marginBottom: '15px', padding: '5px 10px', cursor: 'pointer' }}>Back to Course List</button>
-      <h3 style={{ marginBottom: '20px' }}>Workspace: {course.code} - {course.name}</h3>
+      <button onClick={onBack} style={{ marginBottom: '15px', padding: '5px 10px', cursor: 'pointer' }}>Back to {course.code} Blocks</button>
+      <h3 style={{ marginBottom: '4px' }}>Workspace: {course.code} - {course.name} · Block {block}</h3>
+      <p style={{ color: 'gray', fontSize: '12px', margin: '0 0 20px 0' }}>Everything here (announcements, videos, shared files, assignments, quizzes, submissions, roster and badges) is for block {block} only. Other blocks of {course.code} do not see it.</p>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
         {/* Class roster: mark registered students' course as completed */}
-        {teacher && <ClassRoster course={course} teacher={teacher} />}
+        {teacher && <ClassRoster course={course} block={block} teacher={teacher} onRosterChange={setBlockStudents} />}
 
         {/* Badges: create badges for this course and (from the roster above) assign them to students */}
-        {teacher && <BadgesSection course={course} />}
+        {teacher && <BadgesSection course={course} block={block} />}
         
         {/* Announcements Section */}
         <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>
@@ -212,8 +221,9 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
         </div>
 
         {/* Assignment & Grading Builders */}
-        <AssignmentBuilder 
-          courseCode={course.code} 
+        <AssignmentBuilder
+          courseCode={course.code}
+          block={block} 
           assignments={courseAssignments} 
           setAssignments={setCourseAssignments} 
           onDataChange={fetchCourseData} 
@@ -222,7 +232,8 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
         <GradingSection 
           assignments={courseAssignments} 
           setAssignments={setCourseAssignments} 
-          enrolledStudents={courseContent.enrolledStudents || []}
+          enrolledStudents={blockStudents}
+          blockScoped
           onDataChange={fetchCourseData} 
         />
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Select, Upload, Typography, Space, message } from 'antd';
+import { Modal, Form, Input, Upload, Typography, Space, message } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import api from '../../api';
 import { BADGE_SHAPES, loadImage, loadImageUrl, renderBadgePng } from './badgeShapes';
@@ -33,9 +33,8 @@ function ShapeTile({ shape, imageUrl, selected, onClick }) {
  * logo is used as a placeholder. Either way it is cropped to fill the shape and stored (as a PNG data URL)
  * together with the name, course, block and department.
  */
-export default function BadgeFormModal({ open, course, onClose, onCreated }) {
+export default function BadgeFormModal({ open, course, block, onClose, onCreated }) {
   const [form] = Form.useForm();
-  const [blocks, setBlocks] = useState([]);
   const [img, setImg] = useState(null);          // HTMLImageElement of the upload
   const [imgUrl, setImgUrl] = useState('');      // object/data URL used by the live previews
   const [shape, setShape] = useState('circle');
@@ -44,9 +43,6 @@ export default function BadgeFormModal({ open, course, onClose, onCreated }) {
   useEffect(() => {
     if (!open) return;
     form.resetFields(); setImg(null); setImgUrl(''); setShape('circle');
-    api.get('/staff/blocks')
-      .then(res => { if (res.data.success) setBlocks(res.data.blocks); })
-      .catch(err => message.error(err?.response?.data?.message || 'Failed to load blocks.'));
   }, [open, form]);
 
   const onPick = async (file) => {
@@ -67,7 +63,7 @@ export default function BadgeFormModal({ open, course, onClose, onCreated }) {
       const source = img || await loadImageUrl(logoImage); // no upload: fall back to the placeholder logo
       const photoUrl = renderBadgePng(source, shape);
       const res = await api.post('/badges', {
-        name: values.name, block: values.block, shape, photoUrl, courseCode: course.code
+        name: values.name, block, shape, photoUrl, courseCode: course.code
       });
       if (res.data.success) { message.success(res.data.message); onCreated && onCreated(res.data.badge); onClose(); }
     } catch (err) { message.error(err?.response?.data?.message || err.message || 'Failed to create the badge.'); }
@@ -97,10 +93,10 @@ export default function BadgeFormModal({ open, course, onClose, onCreated }) {
           <Input maxLength={60} placeholder="e.g. Perfect Attendance" />
         </Form.Item>
         <Space style={{ width: '100%' }} align="start" size={16}>
-          <Form.Item name="block" label="Block" rules={[{ required: true, message: 'Choose a block' }]} style={{ minWidth: 220 }}>
-            <Select showSearch placeholder="Select a block" optionFilterProp="label"
-              options={blocks.map(b => ({ value: b.code, label: b.code }))} notFoundContent="No blocks exist yet." />
-          </Form.Item>
+          <div style={{ minWidth: 160 }}>
+            <div style={{ marginBottom: 8 }}>Block</div>
+            <Text strong>{block}</Text>
+          </div>
           <div>
             <div style={{ marginBottom: 8 }}>Course / Department</div>
             <Text strong>{course?.code}</Text><br /><Text type="secondary">{course?.targetProgram || '-'}</Text>

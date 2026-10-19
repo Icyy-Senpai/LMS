@@ -6,8 +6,8 @@ import BadgeFormModal from './BadgeFormModal';
 
 const { Text } = Typography;
 
-/** The "Badges" section of the course workspace: lists this course's badges and lets the teacher / dean create more. */
-export default function BadgesSection({ course }) {
+/** The "Badges" section of the course workspace: lists this course's badges for one block and lets the teacher / dean create more. */
+export default function BadgesSection({ course, block }) {
   const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -15,11 +15,11 @@ export default function BadgesSection({ course }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/badges/course/${course.code}`);
+      const res = await api.get(`/badges/course/${encodeURIComponent(course.code)}`, { params: { block } });
       if (res.data.success) setBadges(res.data.badges);
     } catch (err) { message.error(err?.response?.data?.message || 'Failed to load badges.'); }
     setLoading(false);
-  }, [course.code]);
+  }, [course.code, block]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -50,7 +50,7 @@ export default function BadgesSection({ course }) {
           ))}
         </div>
       )}
-      <BadgeFormModal open={formOpen} course={course} onClose={() => setFormOpen(false)} onCreated={load} />
+      <BadgeFormModal open={formOpen} course={course} block={block} onClose={() => setFormOpen(false)} onCreated={load} />
     </Card>
   );
 }

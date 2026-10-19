@@ -6,7 +6,8 @@ import api from '../../api';
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-export default function GradingSection({ assignments, setAssignments, enrolledStudents, onDataChange }) {
+// blockScoped: `enrolledStudents` is the exact list to show (one block's students), even when it is empty.
+export default function GradingSection({ assignments, setAssignments, enrolledStudents, onDataChange, blockScoped = false }) {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [gradingSubmission, setGradingSubmission] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -19,7 +20,7 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
 
   const getStudentTableData = () => {
     if (!selectedAssignment) return [];
-    const baseStudents = enrolledStudents && enrolledStudents.length > 0
+    const baseStudents = enrolledStudents && (blockScoped || enrolledStudents.length > 0)
         ? enrolledStudents.map(s => ({ schoolId: s.schoolId, name: `${s.firstName} ${s.lastName}` }))
         : selectedAssignment.submissions.map(s => ({ schoolId: s.studentUsername, name: s.studentUsername }));
 

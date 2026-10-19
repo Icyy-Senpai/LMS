@@ -13,13 +13,13 @@ export default function AssignBadgeModal({ open, course, student, onClose, onAss
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open || !course) return;
+    if (!open || !course || !student?.block) { setBadges([]); return; }
     setSelected(null); setLoading(true);
-    api.get(`/badges/course/${course.code}`)
+    api.get(`/badges/course/${encodeURIComponent(course.code)}`, { params: { block: student.block } })
       .then(res => { if (res.data.success) setBadges(res.data.badges); })
       .catch(err => message.error(err?.response?.data?.message || 'Failed to load badges.'))
       .finally(() => setLoading(false));
-  }, [open, course]);
+  }, [open, course, student?.block]);
 
   // Only badges for this student's block can be given to them.
   const forBlock = badges.filter(b => b.block === student?.block);

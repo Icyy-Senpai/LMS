@@ -3,6 +3,9 @@ const CourseContent = require('../models/CourseContent');
 const Teacher = require('../models/Teacher');
 const Student = require('../models/Student');
 const { markCourseComplete } = require('../utils/courseCompletion');
+const { assertTeaches } = require('../utils/blocks');
+const Block = require('../models/Block');
+const { getBlockContent, studentBlock } = require('../utils/courseContent');
 
 const getCourses = async (req, res) => {
   try {
@@ -21,43 +24,52 @@ const getCourses = async (req, res) => {
   }
 };
 
+// Announcements / videos / shared files of a course for ONE block:
+//   ?studentId=X -> that student's block (read from the database)
+//   ?block=B     -> block B (a teacher's block workspace)
 const getInstructorCourse = async (req, res) => {
   try {
-    let content = await CourseContent.findOne({ courseCode: req.params.courseCode });
-    if (!content) {
-      content = new CourseContent({ courseCode: req.params.courseCode, videos: [], materials: [], quizzes: [], enrolledStudents: [], assignments: [] });
-      await content.save();
+    const block = req.query.studentId ? await studentBlock(req.query.studentId) : (typeof req.query.block === 'string' ? req.query.block.trim() : '');
+    if (!block && req.query.studentId) {
+      // A student who is not in a block has no block content yet.
+      return res.json({ success: true, content: { courseCode: req.params.courseCode, block: '', announcements: [], videos: [], materials: [] } });
     }
+    if (!block) return res.status(400).json({ success: false, message: 'block is required.' });
+    if (!(await Block.exists({ code: block }))) return res.status(404).json({ success: false, message: `Block ${block} does not exist.` });
+    const content = await getBlockContent(req.params.courseCode, block);
     res.json({ success: true, content });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching course content' });
   }
 };
 
+// Saves one block's announcements / videos / shared files. Only the professor of the course in that block.
 const updateInstructorCourse = async (req, res) => {
-  const { courseCode, videos, materials, quizzes, announcements, assignments } = req.body;
+  const { courseCode, block, videos, materials, announcements } = req.body;
   try {
-    const updated = await CourseContent.findOneAndUpdate(
-      { courseCode },
-      { videos, materials, quizzes, announcements, assignments },
-      { new: true, upsert: true }
-    );
+    if (!block) return res.status(400).json({ success: false, message: 'block is required.' });
+    await assertTeaches(req.teacher, courseCode, block);
+    await getBlockContent(courseCode, block); // make sure it exists (starts as a copy of the course-wide content)
+    const set = {};
+    if (Array.isArray(videos)) set.videos = videos;
+    if (Array.isArray(materials)) set.materials = materials;
+    if (Array.isArray(announcements)) set.announcements = announcements;
+    const updated = await CourseContent.findOneAndUpdate({ courseCode, block }, { $set: set }, { new: true });
     res.json({ success: true, content: updated, message: 'Course updated successfully' });
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ success: false, message: error.message });
     res.status(500).json({ success: false, message: 'Error updating course content' });
   }
 };
 
-// A teacher may only act on courses they are the assigned instructor of.
+// A teacher may only act on a course in the blocks they teach it in (Block.courseProfessors).
 // NOTE: like the rest of the non-admin API, this trusts the teacherId sent by the client (the app has no sessions/tokens yet).
-const loadOwnedCourse = async (teacherId, courseCode) => {
+const loadOwnedCourse = async (teacherId, courseCode, blockCode) => {
   const fail = (status, message) => Object.assign(new Error(message), { status });
   if (!teacherId) throw fail(401, 'Teacher identification required.');
   const teacher = await Teacher.findOne({ schoolId: teacherId });
   if (!teacher || teacher.status === 'Suspended') throw fail(403, 'Teacher access denied.');
-  const course = await Course.findOne({ code: courseCode });
-  if (!course) throw fail(404, 'Course not found.');
-  if (course.instructorID !== teacher.schoolId) throw fail(403, 'You are not the instructor of this course.');
+  const { course } = await assertTeaches(teacher, courseCode, blockCode);
   return { teacher, course };
 };
 
@@ -67,14 +79,16 @@ const sendErr = (res, err, fallback) => {
   res.status(500).json({ success: false, message: fallback });
 };
 
-// Students registered in (and those who have completed) one of the teacher's courses.
+// Students of one block registered in (and those who have completed) one of the teacher's courses.
 const getTeacherCourseRoster = async (req, res) => {
   try {
     const { courseCode } = req.params;
-    await loadOwnedCourse(req.query.teacherId, courseCode);
+    const block = typeof req.query.block === 'string' ? req.query.block : '';
+    if (!block) return res.status(400).json({ success: false, message: 'block is required.' });
+    await loadOwnedCourse(req.query.teacherId, courseCode, block);
     const fields = 'schoolId firstName lastName middleName department yearLevel block photoUrl';
-    const enrolled = await Student.find({ 'enrolledCourseSubjects.code': courseCode }, fields).sort({ lastName: 1, firstName: 1 }).lean();
-    const doneRaw = await Student.find({ 'completedCourses.code': courseCode }, `${fields} completedCourses`).sort({ lastName: 1, firstName: 1 }).lean();
+    const enrolled = await Student.find({ block, 'enrolledCourseSubjects.code': courseCode }, fields).sort({ lastName: 1, firstName: 1 }).lean();
+    const doneRaw = await Student.find({ block, 'completedCourses.code': courseCode }, `${fields} completedCourses`).sort({ lastName: 1, firstName: 1 }).lean();
     const completed = doneRaw.map(({ completedCourses, ...st }) => ({ ...st, completion: completedCourses.find(c => c.code === courseCode) }));
     res.json({ success: true, enrolled, completed });
   } catch (err) { sendErr(res, err, 'Failed to load class roster.'); }
@@ -84,7 +98,10 @@ const completeCourseForStudent = async (req, res) => {
   const { teacherId, studentId, courseCode } = req.body;
   try {
     if (!studentId || !courseCode) return res.status(400).json({ success: false, message: 'studentId and courseCode are required.' });
-    const { teacher } = await loadOwnedCourse(teacherId, courseCode);
+    const student = await Student.findOne({ schoolId: studentId }, 'block').lean();
+    if (!student) return res.status(404).json({ success: false, message: 'Student not found.' });
+    if (!student.block) return res.status(400).json({ success: false, message: 'That student is not in a block.' });
+    const { teacher } = await loadOwnedCourse(teacherId, courseCode, student.block);
     await markCourseComplete({
       studentSchoolId: studentId, courseCode,
       byName: `Prof. ${teacher.lastName}, ${teacher.firstName}`, byRole: teacher.isDean === true ? 'Dean' : 'Teacher'

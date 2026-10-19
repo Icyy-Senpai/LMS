@@ -3,7 +3,7 @@ const { BADGE_SHAPES } = require('../models/Badge');
 const Course = require('../models/Course');
 const Student = require('../models/Student');
 const Notification = require('../models/Notification');
-const { listBlocks } = require('../utils/blocks');
+const { assertTeaches } = require('../utils/blocks');
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const sendErr = (res, err, fallback) => {
@@ -17,18 +17,16 @@ const sendErr = (res, err, fallback) => {
 const teacherName = (t) => `Prof. ${t.lastName}, ${t.firstName}`;
 const MAX_IMAGE_CHARS = 1500000; // ~1.1 MB of image data once base64-decoded
 
-// Badges belong to a course, and a teacher (or Dean, who is also a teacher) may only manage badges of courses they instruct.
-const ownedCourse = async (teacher, courseCode) => {
-  const course = await Course.findOne({ code: courseCode });
-  if (!course) throw fail(404, 'Course not found.');
-  if (course.instructorID !== teacher.schoolId) throw fail(403, 'You are not the instructor of this course.');
-  return course;
-};
+// Badges belong to a course + block, and a teacher (or Dean, who is also a teacher) may only manage the badges of
+// the blocks they teach that course in (Block.courseProfessors).
+const ownedCourse = async (teacher, courseCode, blockCode) => (await assertTeaches(teacher, courseCode, blockCode)).course;
 
 const getCourseBadges = async (req, res) => {
   try {
-    await ownedCourse(req.teacher, req.params.code);
-    const badges = await Badge.find({ course: req.params.code }).sort({ createdAt: -1 }).lean();
+    const block = typeof req.query.block === 'string' ? req.query.block : '';
+    if (!block) throw fail(400, 'block is required.');
+    await ownedCourse(req.teacher, req.params.code, block);
+    const badges = await Badge.find({ course: req.params.code, block }).sort({ createdAt: -1 }).lean();
     res.json({ success: true, badges });
   } catch (err) { sendErr(res, err, 'Failed to load badges.'); }
 };
@@ -36,7 +34,9 @@ const getCourseBadges = async (req, res) => {
 const createBadge = async (req, res) => {
   const { name, photoUrl, shape, courseCode, block } = req.body;
   try {
-    const course = await ownedCourse(req.teacher, courseCode);
+    const blockCode = typeof block === 'string' ? block.trim() : '';
+    if (!blockCode) throw fail(400, 'Please choose a block.');
+    const course = await ownedCourse(req.teacher, courseCode, blockCode);
 
     const cleanName = typeof name === 'string' ? name.trim() : '';
     if (!cleanName) throw fail(400, 'Badge name is required.');
@@ -44,8 +44,6 @@ const createBadge = async (req, res) => {
     if (!BADGE_SHAPES.includes(shape)) throw fail(400, 'Please choose a badge shape.');
     if (typeof photoUrl !== 'string' || !/^data:image\/(png|jpeg|webp|gif);base64,/.test(photoUrl)) throw fail(400, 'Please upload an image for the badge.');
     if (photoUrl.length > MAX_IMAGE_CHARS) throw fail(400, 'The badge image is too large.');
-    const blockCode = typeof block === 'string' ? block.trim() : '';
-    if (!blockCode || !(await listBlocks()).some(b => b.code === blockCode)) throw fail(400, 'Please choose an existing block.');
 
     const badge = await new Badge({
       name: cleanName, photoUrl, shape,
@@ -60,7 +58,7 @@ const deleteBadge = async (req, res) => {
   try {
     const badge = await Badge.findById(req.params.id);
     if (!badge) throw fail(404, 'Badge not found.');
-    await ownedCourse(req.teacher, badge.course);
+    await ownedCourse(req.teacher, badge.course, badge.block);
     await badge.deleteOne(); // students lose it from their profile too: profiles read badges straight from this collection
     res.json({ success: true, message: 'Badge deleted.' });
   } catch (err) { sendErr(res, err, 'Failed to delete the badge.'); }
@@ -72,7 +70,7 @@ const assignBadge = async (req, res) => {
     if (!studentId) throw fail(400, 'studentId is required.');
     const badge = await Badge.findById(req.params.id);
     if (!badge) throw fail(404, 'Badge not found.');
-    await ownedCourse(req.teacher, badge.course);
+    await ownedCourse(req.teacher, badge.course, badge.block);
 
     const student = await Student.findOne({ schoolId: studentId });
     if (!student) throw fail(404, 'Student not found.');

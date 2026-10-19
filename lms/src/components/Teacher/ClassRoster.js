@@ -9,11 +9,12 @@ import AssignBadgeModal from './AssignBadgeModal';
 const { Text } = Typography;
 
 /**
- * Class roster for one of the teacher's courses. The teacher can mark a registered student's course as
- * completed (one at a time or in bulk); the course then moves to that student's "Completed Courses".
- * The teacher can also move a student to a different block.
+ * Class roster for one of the teacher's courses in ONE block (the students of that block). The teacher can mark a
+ * registered student's course as completed (one at a time or in bulk); the course then moves to that student's
+ * "Completed Courses". The teacher can also move a student to a different block.
+ * `onRosterChange(students)` receives every student listed (registered + completed), e.g. for grading.
  */
-export default function ClassRoster({ course, teacher }) {
+export default function ClassRoster({ course, block, teacher, onRosterChange }) {
   const [roster, setRoster] = useState({ enrolled: [], completed: [] });
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState([]);
@@ -24,13 +25,17 @@ export default function ClassRoster({ course, teacher }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/instructor/course/${course.code}/roster`, { params: { teacherId: teacher.schoolId } });
-      if (res.data.success) setRoster({ enrolled: res.data.enrolled, completed: res.data.completed });
+      const res = await api.get(`/instructor/course/${encodeURIComponent(course.code)}/roster`, { params: { teacherId: teacher.schoolId, block } });
+      if (res.data.success) {
+        setRoster({ enrolled: res.data.enrolled, completed: res.data.completed });
+        onRosterChange && onRosterChange([...res.data.enrolled, ...res.data.completed]);
+      }
     } catch (err) {
       message.error(err?.response?.data?.message || 'Failed to load the class roster.');
     }
     setLoading(false);
-  }, [course.code, teacher.schoolId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [course.code, block, teacher.schoolId]);
 
   useEffect(() => { setSelected([]); load(); }, [load]);
 
@@ -48,8 +53,8 @@ export default function ClassRoster({ course, teacher }) {
     load();
   };
 
-  const reassignBlock = async (block) => {
-    const res = await api.put('/staff/students/block', { studentId: moving.schoolId, block });
+  const reassignBlock = async (newBlock, autoEnroll) => {
+    const res = await api.put('/staff/students/block', { studentId: moving.schoolId, block: newBlock, autoEnroll });
     message.success(res.data.message);
     load();
   };
@@ -59,7 +64,7 @@ export default function ClassRoster({ course, teacher }) {
   const enrolledColumns = [
     { title: 'Student', key: 'name', render: (_, s) => <Text strong>{nameOf(s)}</Text> },
     { title: 'School ID', dataIndex: 'schoolId' },
-    { title: 'Year / Block', key: 'yb', render: (_, s) => `Year ${s.yearLevel ?? '-'} · ${s.block || '-'}` },
+    { title: 'Year', key: 'yb', render: (_, s) => `Year ${s.yearLevel ?? '-'}` },
     { title: 'Action', key: 'action', render: (_, s) => (
       <Space>
         <Popconfirm title="Mark this course as completed?" description={`${nameOf(s)} will move ${course.code} to Completed Courses.`}
@@ -85,7 +90,7 @@ export default function ClassRoster({ course, teacher }) {
 
   return (
     <Card size="small" style={{ border: '1px solid #d9d9d9' }}
-      title={<span><TrophyOutlined /> Class Roster &amp; Course Completion</span>}
+      title={<span><TrophyOutlined /> Class Roster &amp; Course Completion <Tag color="blue" style={{ marginLeft: 8 }}>Block {block}</Tag></span>}
       extra={
         <Popconfirm title={`Mark ${selected.length} selected student(s) as completed?`} okText="Mark Completed" cancelText="Cancel" disabled={selected.length === 0} onConfirm={() => complete(selected)}>
           <Button type="primary" icon={<CheckCircleOutlined />} disabled={selected.length === 0} loading={busy}>Mark selected as completed ({selected.length})</Button>
@@ -95,12 +100,12 @@ export default function ClassRoster({ course, teacher }) {
       <Table size="small" rowKey="schoolId" loading={loading} dataSource={roster.enrolled} columns={enrolledColumns}
         rowSelection={{ selectedRowKeys: selected, onChange: setSelected }}
         pagination={{ pageSize: 8, size: 'small', hideOnSinglePage: true }}
-        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No students are currently registered in this course." /> }} />
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`No students of block ${block} are currently registered in this course.`} /> }} />
 
       <Space style={{ margin: '16px 0 8px' }}><Text strong>Completed</Text><Tag color="green">{roster.completed.length}</Tag></Space>
       <Table size="small" rowKey="schoolId" loading={loading} dataSource={roster.completed} columns={completedColumns}
         pagination={{ pageSize: 5, size: 'small', hideOnSinglePage: true }}
-        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No students have completed this course yet." /> }} />
+        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`No students of block ${block} have completed this course yet.`} /> }} />
 
       <ReassignBlockModal open={Boolean(moving)} personLabel={moving ? nameOf(moving) : ''} currentBlock={moving?.block}
         onClose={() => setMoving(null)} onSubmit={reassignBlock} />

@@ -36,7 +36,9 @@ const studentSchema = new mongoose.Schema({
   yearLevel: { type: Number, required: true },
   schoolEmail: { type: String, required: true, unique: true },
   department: { type: String, required: true },
-  block: { type: String, required: true},
+  // Code of the ONE block (section) this student is in; mirrors Block.studentsRegistered. Change it only through
+  // utils/blocks.js assignStudentToBlock so both sides stay in step.
+  block: { type: String, default: '' },
   password: { type: String, required: true},
   photoUrl: { type: String, default: '' },
   status: { type: String, enum: ['Active', 'Suspended'], default: 'Active' },

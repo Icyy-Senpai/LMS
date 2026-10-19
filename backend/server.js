@@ -11,6 +11,8 @@ const socialRoutes = require('./routes/socialRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const staffRoutes = require('./routes/staffRoutes');
 const badgeRoutes = require('./routes/badgeRoutes');
+const { migrateBlocks } = require('./utils/blocks');
+const { migrateCourseContent } = require('./utils/courseContent');
 
 const app = express();
 
@@ -18,7 +20,7 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 mongoose.connect('mongodb://127.0.0.1:27017/lms_project')
-  .then(() => console.log('Connected to MongoDB'))
+  .then(() => { console.log('Connected to MongoDB'); return Promise.all([migrateBlocks(), migrateCourseContent()]); })
   .catch(err => console.error('MongoDB connection error:', err));
 
 app.use('/api', adminRoutes); // mounted first; guarded by requireAdmin inside the router

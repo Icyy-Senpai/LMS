@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const c = require('../controllers/adminController');
 const requireAdmin = require('../middleware/requireAdmin');
+const { listBlocks } = require('../utils/blocks');
 
 // Every /api/admin/* request must come from an active Admin account
 router.use('/admin', requireAdmin);
@@ -28,6 +29,11 @@ router.get('/admin/courses/:code/roster', c.getCourseRoster);
 
 // Departments
 router.get('/admin/departments', c.getDepartments);
+// Blocks (read-only for admins; Deans create them and manage their subjects / professors)
+router.get('/admin/blocks', async (req, res) => {
+  try { res.json({ success: true, blocks: await listBlocks() }); }
+  catch (err) { console.error(err); res.status(500).json({ success: false, message: 'Failed to load blocks.' }); }
+});
 router.post('/admin/departments', c.createDepartment);
 router.put('/admin/departments/:id', c.updateDepartment);
 router.delete('/admin/departments/:id', c.deleteDepartment);
@@ -38,13 +44,8 @@ router.post('/admin/courses/:code/content/:kind', c.addContentItem);
 router.put('/admin/courses/:code/content/:kind/:itemId', c.updateContentItem);
 router.delete('/admin/courses/:code/content/:kind/:itemId', c.deleteContentItem);
 
-// Assignments / quizzes / submissions
-router.get('/admin/assignments', c.getAssignments);
-router.put('/admin/assignments/:id', c.updateAssignment);
-router.delete('/admin/assignments/:id', c.deleteAssignment);
-router.get('/admin/assignments/:id/submissions', c.getSubmissions);
-// Grading is Teacher/Dean-only (POST /assignments/grade), so admins have no route to change a grade, feedback or flag.
-router.delete('/admin/submissions/:id', c.deleteSubmission);
+// No assignment / quiz / submission routes: creating, managing and grading them is for Teachers and Deans only
+// (see routes/assignmentRoutes.js and routes/quizRoutes.js, guarded by requireTeacher).
 
 // Forums
 router.get('/admin/forums', c.getAllForums);

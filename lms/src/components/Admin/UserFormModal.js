@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Select, Row, Col, Button, Divider, Tag, Switch, message } from 'antd';
+import { Modal, Form, Input, Select, Row, Col, Button, Divider, Tag, Switch, Radio, message } from 'antd';
 import api from '../../api';
 import { showError } from './adminUtils';
 
@@ -13,7 +13,9 @@ const CIVIL = ['Single', 'Married', 'Widowed', 'Separated'].map(v => ({ value: v
 export default function UserFormModal({ open, mode, user, programs = [], onClose, onSaved }) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
+  const [blocks, setBlocks] = useState([]);
   const isEdit = mode === 'edit';
+  const watchedBlock = Form.useWatch('block', form);
   const watchedType = Form.useWatch('accountType', form);
   const accountType = isEdit ? user?.accountType : watchedType;
 
@@ -21,11 +23,19 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
     if (!open) return;
     form.resetFields();
     if (isEdit && user) {
-      form.setFieldsValue({ ...user, schoolEmail: user.schoolEmail || user.email, email: user.email, isDean: user.isDean === true });
+      form.setFieldsValue({ ...user, schoolEmail: user.schoolEmail || user.email, email: user.email, isDean: user.isDean === true, block: user.block || undefined, autoEnrollBlockSubjects: true });
     } else {
-      form.setFieldsValue({ accountType: 'Student', isDean: false });
+      form.setFieldsValue({ accountType: 'Student', isDean: false, autoEnrollBlockSubjects: true });
     }
   }, [open, isEdit, user, form]);
+
+  // Blocks a student can be placed in (created by Deans).
+  useEffect(() => {
+    if (!open) return;
+    api.get('/admin/blocks')
+      .then(res => { if (res.data.success) setBlocks(res.data.blocks); })
+      .catch(() => setBlocks([]));
+  }, [open]);
 
   // New Student / Teacher: preview the School ID the server will assign (next number after the highest existing one).
   // The server picks the final value when the account is created, so this is display-only.
@@ -46,6 +56,8 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
       if (!isEdit) delete payload.schoolId; // always assigned by the server
       ['mobileNum', 'teleNum'].forEach(k => { if (payload[k] !== undefined && payload[k] !== '') payload[k] = Number(payload[k]); });
       if (payload.yearLevel !== undefined) payload.yearLevel = Number(payload.yearLevel);
+      if (accountType === 'Student') payload.block = values.block || ''; // '' = not in a block
+      else { delete payload.block; delete payload.autoEnrollBlockSubjects; }
       const res = isEdit
         ? await api.put('/admin/users', { ...payload, id: user._id, accountType: user.accountType })
         : await api.post('/admin/users', payload);
@@ -152,7 +164,25 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
               {accountType === 'Student' && (
                 <>
                   <Col span={6}><Form.Item name="yearLevel" label="Year Level" rules={[{ required: true }]}><Select options={[1, 2, 3, 4, 5].map(v => ({ value: v, label: `Year ${v}` }))} /></Form.Item></Col>
-                  <Col span={6}><Form.Item name="block" label="Block" rules={[{ required: true }]}><Input placeholder="e.g. IT201" /></Form.Item></Col>
+                  <Col span={6}>
+                    <Form.Item name="block" label="Block">
+                      <Select showSearch allowClear placeholder="No block" optionFilterProp="label" notFoundContent="No blocks yet. A Dean creates them."
+                        options={blocks.map(b => {
+                          const full = Boolean(b.maxAmountOfStudents) && b.studentCount >= b.maxAmountOfStudents && b.code !== user?.block;
+                          return { value: b.code, label: `${b.code}${full ? ' (full)' : ''}`, disabled: full };
+                        })} />
+                    </Form.Item>
+                  </Col>
+                  {watchedBlock && watchedBlock !== (isEdit ? user?.block || '' : '') && (
+                    <Col span={24}>
+                      <Form.Item name="autoEnrollBlockSubjects" label="Block subjects">
+                        <Radio.Group options={[
+                          { value: true, label: `Enroll in ${watchedBlock}'s subjects automatically` },
+                          { value: false, label: 'Keep course enrollment separate' }
+                        ]} />
+                      </Form.Item>
+                    </Col>
+                  )}
                 </>
               )}
             </Row>

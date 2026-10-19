@@ -12,8 +12,11 @@ const KINDS = {
   materials: { label: 'Material', fields: [{ name: 'title', label: 'Title', required: true }, { name: 'fileUrl', label: 'Link (optional)' }] }
 };
 
-/** Add / edit / delete announcements, videos or material links of one course. */
-export default function CourseContentManager({ courseCode, kind }) {
+/**
+ * Add / edit / delete announcements, videos or material links of one course in one block (content is per block).
+ * block '' = the course-wide content from before content was per block (new blocks start with a copy of it).
+ */
+export default function CourseContentManager({ courseCode, kind, block = '' }) {
   const cfg = KINDS[kind];
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -23,11 +26,11 @@ export default function CourseContentManager({ courseCode, kind }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/admin/courses/${courseCode}/content`);
+      const res = await api.get(`/admin/courses/${encodeURIComponent(courseCode)}/content`, { params: { block } });
       if (res.data.success) setItems(res.data.content[kind] || []);
     } catch (err) { showError(err, 'Failed to load content.'); }
     setLoading(false);
-  }, [courseCode, kind]);
+  }, [courseCode, kind, block]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -35,15 +38,15 @@ export default function CourseContentManager({ courseCode, kind }) {
 
   const save = async (values) => {
     try {
-      const base = `/admin/courses/${courseCode}/content/${kind}`;
-      const res = editing && editing._id ? await api.put(`${base}/${editing._id}`, values) : await api.post(base, values);
+      const base = `/admin/courses/${encodeURIComponent(courseCode)}/content/${kind}`;
+      const res = editing && editing._id ? await api.put(`${base}/${editing._id}`, values, { params: { block } }) : await api.post(base, values, { params: { block } });
       if (res.data.success) { message.success(res.data.message); setEditing(null); load(); }
     } catch (err) { showError(err, 'Failed to save.'); }
   };
 
   const remove = async (id) => {
     try {
-      await api.delete(`/admin/courses/${courseCode}/content/${kind}/${id}`);
+      await api.delete(`/admin/courses/${encodeURIComponent(courseCode)}/content/${kind}/${id}`, { params: { block } });
       message.success('Removed.');
       load();
     } catch (err) { showError(err, 'Failed to remove.'); }

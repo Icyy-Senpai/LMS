@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
-import { message, Button } from 'antd';
-import { SafetyCertificateOutlined } from '@ant-design/icons';
+import { message } from 'antd';
 import api from '../api';
 
+// One sign-in form for everyone. Students, teachers and deans use their school email; an admin can type their
+// admin username (or email) here too. The backend (userController.login) finds the matching account and its
+// accountType decides which dashboard App.js opens, so admins land on the admin page.
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isAdminLogin, setIsAdminLogin] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // The backend userController handles 'email' as either an email or a username
-      const response = await api.post('/login', { email, password });
+      const response = await api.post('/login', { email: email.trim(), password });
 
       if (response.data.success) {
         message.success('Login successful!');
@@ -30,31 +30,21 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className={`login-page${isAdminLogin ? ' admin' : ''}`}>
-
-      {/* Admin Toggle Button - Top Left */}
-      <div className="login-toggle">
-        <Button
-            type={isAdminLogin ? "primary" : "default"}
-            icon={<SafetyCertificateOutlined />}
-            onClick={() => { setIsAdminLogin(!isAdminLogin); setEmail(''); setPassword(''); }}
-        >
-            {isAdminLogin ? 'Return to Student/Faculty Login' : 'Admin Access'}
-        </Button>
-      </div>
-
+    <div className="login-page">
       <div className="login-card">
         <div className="login-card-banner">
-          <h2>{isAdminLogin ? 'System Administration' : 'LMS Portal'}</h2>
-          <p>{isAdminLogin ? 'Sign in with your Admin credentials' : 'Sign in to your account'}</p>
+          <h2>LMS Portal</h2>
+          <p>Sign in to your account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           <label>
-            {isAdminLogin ? 'Admin Username / Email' : 'Email'}
+            Email
+            {/* type="text", not "email": admin usernames are not email addresses */}
             <input
-              type={isAdminLogin ? "text" : "email"}
-              placeholder={isAdminLogin ? "Enter admin username" : "Enter your school email"}
+              type="text"
+              autoComplete="username"
+              placeholder="Enter your school email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -64,6 +54,7 @@ export default function Login({ onLoginSuccess }) {
             Password
             <input
               type="password"
+              autoComplete="current-password"
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

@@ -9,7 +9,7 @@ const { Title, Text } = Typography;
 // ==========================================
 // AI QUIZ GENERATOR COMPONENT
 // ==========================================
-function AIQuizGenerator({ courseCode, onQuizSaved }) {
+function AIQuizGenerator({ courseCode, block, onQuizSaved }) {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [file, setFile] = useState(null);
@@ -65,6 +65,7 @@ function AIQuizGenerator({ courseCode, onQuizSaved }) {
     try {
       const response = await api.post('/assignments/create', {
         courseCode,
+        block,
         title: quizMetadata.title,
         instructions: 'Please answer the following questions based on the lesson.',
         deadline: quizMetadata.deadline,
@@ -75,7 +76,7 @@ function AIQuizGenerator({ courseCode, onQuizSaved }) {
       });
 
       if (response.data.success) {
-        message.success('Quiz saved to course!');
+        message.success(`Quiz saved to block ${block}!`);
         setIsModalVisible(false);
         setGeneratedQuiz(null);
         setQuizMetadata(null);
@@ -167,7 +168,8 @@ function AIQuizGenerator({ courseCode, onQuizSaved }) {
 // ==========================================
 // MAIN ASSIGNMENT BUILDER COMPONENT
 // ==========================================
-export default function AssignmentBuilder({ courseCode, assignments, setAssignments, onDataChange }) {
+// Everything created here belongs to `block` only (see Assignment.block).
+export default function AssignmentBuilder({ courseCode, block, assignments, setAssignments, onDataChange }) {
   const [assTitle, setAssTitle] = useState('');
   const [assInstructions, setAssInstructions] = useState('');
   const [assDeadline, setAssDeadline] = useState('');
@@ -201,7 +203,8 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
     }
 
     const payload = {
-      courseCode, 
+      courseCode,
+      block,
       title: assTitle, 
       instructions: assInstructions, 
       deadline: assDeadline,
@@ -219,8 +222,8 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
         setAssAutoClose(false); setAssMaxGrade(100); setFileList([]);
         if (typeof onDataChange === 'function') onDataChange();
       }
-    } catch (err) { 
-      message.error('Failed to create assignment'); 
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Failed to create assignment');
     }
   };
 
@@ -233,8 +236,8 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
         setAssignments(assignments.filter(a => a._id !== assignmentId));
         if (typeof onDataChange === 'function') onDataChange();
       }
-    } catch (err) { 
-      message.error('Failed to delete assignment.'); 
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Failed to delete assignment.');
     }
   };
 
@@ -266,7 +269,7 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
     <div style={{ border: '1px solid #d9d9d9', padding: '20px', borderRadius: '8px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
         <h3 style={{ margin: 0 }}>Assignments & Quizzes Builder</h3>
-        <AIQuizGenerator courseCode={courseCode} onQuizSaved={handleAIQuizSaved} />
+        <AIQuizGenerator courseCode={courseCode} block={block} onQuizSaved={handleAIQuizSaved} />
       </div>
 
       <form onSubmit={handleCreateAssignment} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px', maxWidth: '600px', background: '#fafafa', padding: '15px', borderRadius: '6px' }}>
@@ -288,12 +291,17 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
         <button type="submit" style={{ padding: '10px', background: '#c62828', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}>Create Manual Assignment</button>
       </form>
 
-      <h4>Active Assignments & Quizzes</h4>
+      <h4>Active Assignments & Quizzes · Block {block}</h4>
       <ul style={{ paddingLeft: 0 }}>
         {assignments.map(ass => (
           <li key={ass._id} style={{ marginBottom: '10px', padding: '15px', border: '1px solid #e8e8e8', listStyle: 'none', borderRadius: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ fontSize: '16px', color: ass.type === 'Quiz' ? '#424242' : 'inherit' }}>{ass.title}</strong>
+              <span>
+                <strong style={{ fontSize: '16px', color: ass.type === 'Quiz' ? '#424242' : 'inherit' }}>{ass.title}</strong>
+                <span style={{ marginLeft: 8, fontSize: '12px', padding: '1px 6px', borderRadius: 4, background: ass.block ? '#e6f4ff' : '#f5f5f5', color: ass.block ? '#0958d9' : '#8c8c8c' }}>
+                  {ass.block ? `Block ${ass.block}` : 'All blocks (older)'}
+                </span>
+              </span>
               <button onClick={() => handleDeleteAssignment(ass._id)} style={{ color: 'red', cursor: 'pointer', border: 'none', background: 'none' }}>Delete</button>
             </div>
             <div style={{ color: 'gray', fontSize: '13px', marginTop: '5px' }}>

@@ -33,8 +33,8 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
   const fetchCourseData = () => {
     setLoading(true);
     Promise.all([
-      api.get(`/instructor/course/${course.code}`),
-      api.get(`/assignments/${course.code}`)
+      api.get(`/instructor/course/${encodeURIComponent(course.code)}`, { params: { studentId: user.schoolId } }),
+      api.get(`/assignments/${encodeURIComponent(course.code)}`, { params: { studentId: user.schoolId } })
     ]).then(([contentRes, assData]) => {
       if (contentRes.data.success) setCourseContent(contentRes.data.content);
       if (assData.data.success) setCourseAssignments(assData.data.assignments);

@@ -11,7 +11,6 @@ import UserFormModal from './UserFormModal';
 import ResetPasswordModal from './ResetPasswordModal';
 import CourseFormModal from './CourseFormModal';
 import CourseDetailsModal from './CourseDetailsModal';
-import AssignmentsPanel from './AssignmentsPanel';
 import ForumsPanel from './ForumsPanel';
 import DepartmentsPanel from './DepartmentsPanel';
 import BroadcastModal from './BroadcastModal';
@@ -155,8 +154,7 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
   const statCards = [
     { title: 'Total Users', value: stats.users, icon: <TeamOutlined style={{ color: '#c62828' }} />, hint: `${stats.students || 0} students · ${stats.teachers || 0} faculty · ${stats.admins || 0} admins` },
     { title: 'Courses', value: stats.courses, icon: <BookOutlined style={{ color: '#52c41a' }} /> },
-    { title: 'Forum Threads', value: stats.forums, icon: <SafetyOutlined style={{ color: '#424242' }} /> },
-    { title: 'Assignments & Quizzes', value: stats.assignments, icon: <DashboardOutlined style={{ color: '#faad14' }} />, hint: `${stats.ungraded || 0} submissions awaiting grade` }
+    { title: 'Forum Threads', value: stats.forums, icon: <SafetyOutlined style={{ color: '#424242' }} /> }
   ];
 
   return (
@@ -170,7 +168,6 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
           { key: 'users', icon: <TeamOutlined />, label: 'User Database' },
           { key: 'courses', icon: <BookOutlined />, label: 'Course Management' },
           { key: 'departments', icon: <ApartmentOutlined />, label: 'Departments' },
-          { key: 'assignments', icon: <FileTextOutlined />, label: 'Assignments & Grades' },
           { key: 'moderation', icon: <SafetyOutlined />, label: 'Global Moderation' }
         ]} />
         <div style={{ position: 'absolute', bottom: 16, width: '100%', padding: collapsed ? '0 8px' : '0 16px' }}>
@@ -231,9 +228,6 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
 
           {activeTab === 'departments' && <DepartmentsPanel departments={departments} loading={loading} onChanged={refreshAll} />}
 
-          {activeTab === 'assignments' && (
-            <Card title="Assignments, Quizzes & Submissions"><AssignmentsPanel onChanged={fetchStats} /></Card>
-          )}
 
           {activeTab === 'moderation' && <ForumsPanel courses={courses} onChanged={fetchStats} />}
         </Content>

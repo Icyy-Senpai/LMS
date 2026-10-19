@@ -153,8 +153,8 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
       for (let course of currentlyEnrolled) {
         try {
           const [contentRes, assRes] = await Promise.all([
-            api.get(`/instructor/course/${course.code}`),
-            api.get(`/assignments/${course.code}`)
+            api.get(`/instructor/course/${encodeURIComponent(course.code)}`, { params: { studentId: user.schoolId } }).catch(() => ({ data: {} })),
+            api.get(`/assignments/${encodeURIComponent(course.code)}`, { params: { studentId: user.schoolId } })
           ]);
 
           if (contentRes.data.success && contentRes.data.content?.announcements) {

@@ -53,8 +53,8 @@ const teacherSchema = new mongoose.Schema({
     },
     validate: { validator: (v) => typeof v === 'boolean', message: 'isDean only accepts true or false.' }
   },
-  // The block this teacher is currently assigned to. Changed by a Dean (see staffController).
-  block: { type: String, default: '' },
+  // Teachers can hold many blocks: see Block.courseProfessors ({ subjectId, teacherId }) for which subject they teach
+  // in which block.
 
   points: { type: Number, default: 0 },
   badges: [{ type: String }],
