@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Space, Divider, Select } from 'antd';
-import { UserOutlined, DashboardOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, FolderOpenOutlined, MailOutlined, CrownOutlined } from '@ant-design/icons';
+import { Layout, Menu, Button, Tooltip, Input, Card, Form, Typography, List, Row, Col, Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Space, Divider, Select } from 'antd';
+import { UserOutlined, DashboardOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, FolderOpenOutlined, MailOutlined, CrownOutlined, ExpandAltOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import BigCalendar, { useReminders } from '../Shared/BigCalendar';
 import CourseWorkspace from './CourseWorkspace';
 import SubjectBlocks from './SubjectBlocks';
 import Network from '../Shared/Network';
@@ -9,6 +10,8 @@ import Forum from '../Shared/Forum';
 import Mailbox from '../Shared/Mailbox';
 import DeanPanel from '../Dean/DeanPanel';
 import api from '../../api';
+import BrandHero from '../Shared/BrandHero';
+import ThemeToggle from '../Shared/ThemeToggle';
 import logoImage from '../../logo.png';
 
 const { Header, Sider, Content } = Layout;
@@ -34,6 +37,12 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
   const [taskCategory, setTaskCategory] = useState('upcoming');
   const [calendarDate, setCalendarDate] = useState(() => dayjs());
   const [selectedDateFilter, setSelectedDateFilter] = useState('');
+
+  // Enlarged calendar + personal reminders (components/Shared/BigCalendar.js)
+  const remindersApi = useReminders(user.schoolId);
+  const [bigCalOpen, setBigCalOpen] = useState(false);
+  const [bigCalDate, setBigCalDate] = useState(null);
+  const openBigCalendar = (date) => { setBigCalDate(date ? date.format('YYYY-MM-DD') : null); setBigCalOpen(true); };
   
   const [notifications, setNotifications] = useState([]); 
   const [mailboxItems, setMailboxItems] = useState([]);
@@ -181,19 +190,25 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
     const isSelected = selectedDateFilter === cellDateStr;
     const isToday = cellDateStr === dayjs().format('YYYY-MM-DD');
     const dayTasks = teacherAssignments.filter(task => task.calendarFilter === cellDateStr);
+    const dayReminders = remindersApi.reminders.filter(r => r.date === cellDateStr && !r.done);
     return (
       <div style={{ textAlign: 'center', fontSize: '11px', padding: '2px 0' }}>
         <div style={{ display: 'inline-block', width: '22px', height: '22px', lineHeight: '22px', borderRadius: '50%', backgroundColor: isSelected ? '#c62828' : 'transparent', color: isSelected ? '#fff' : 'inherit', border: isToday && !isSelected ? '1px solid #c62828' : '1px solid transparent', fontWeight: isSelected || isToday ? 'bold' : 'normal', transition: 'all 0.2s' }}>
           {value.date()}
         </div>
-        {dayTasks.length > 0 && <div style={{ marginTop: -4 }}><Badge dot color={isSelected ? 'white' : 'blue'} /></div>}
+        {(dayTasks.length > 0 || dayReminders.length > 0) && (
+          <div style={{ marginTop: -4, display: 'flex', justifyContent: 'center', gap: 2 }}>
+            {dayTasks.length > 0 && <Badge dot color={isSelected ? 'white' : 'blue'} />}
+            {dayReminders.length > 0 && <Badge dot color={isSelected ? 'white' : '#9e9e9e'} />}
+          </div>
+        )}
       </div>
     );
   };
 
   const handleDateSelect = (date, info) => {
     setCalendarDate(date);
-    if (info && info.source === 'date') setSelectedDateFilter(date.format('YYYY-MM-DD'));
+    if (info && info.source === 'date') { setSelectedDateFilter(date.format('YYYY-MM-DD')); openBigCalendar(date); }
   };
 
   const clearDateFilter = () => {
@@ -272,17 +287,40 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
         </Form>
       </Modal>
 
-      <Sider theme="light" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null} style={{ borderRight: '1px solid #f0f0f0' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <div onClick={() => { setActiveTab(isDean ? 'dean' : 'dashboard'); setSelectedCourse(null); }} style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', transition: 'background-color 0.3s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fafafa'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-            {collapsed ? <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /> : <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /><Title level={4} style={{ margin: '0 0 0 5px', color: '#c62828' }}>{isDean ? 'eLMS Dean' : 'eLMS Faculty'}</Title></div>}
+      <BigCalendar open={bigCalOpen} onClose={() => setBigCalOpen(false)} initialDate={bigCalDate} remindersApi={remindersApi}
+        tasks={teacherAssignments.map(a => ({ id: a._id, title: a.block ? `${a.title} (${a.block})` : a.title, courseCode: a.courseCode, type: a.type, calendarFilter: a.calendarFilter, dateStr: a.dateStr, isOverdue: a.isOverdue, block: a.block }))}
+        onOpenTask={(t) => { const course = myCourses.find(c => c.code === t.courseCode); if (!course) return; setBigCalOpen(false); setSelectedCourseState(course); setSelectedBlock(t.block ? { code: t.block } : null); }} />
+
+      <Sider className="sdca-sider" theme="dark" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+          <div className="sdca-sider-brand" onClick={() => { setActiveTab(isDean ? 'dean' : 'dashboard'); setSelectedCourse(null); }}>
+            <img src={logoImage} alt="St. Dominic College of Asia" />
+            {!collapsed && <div className="sdca-sider-name"><b>eLMS</b><small>{isDean ? "Dean's Office" : 'Faculty'}</small></div>}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto' }}><Menu mode="inline" selectedKeys={selectedCourse ? [] : [activeTab]} onClick={(e) => { if(e.key !== 'catalog') { setActiveTab(e.key); setSelectedCourse(null); } }} items={menuItems} style={{ borderRight: 0, marginTop: 16 }} /></div>
-          <div style={{ padding: collapsed ? '16px 8px' : '16px', borderTop: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}>
-            {collapsed ? <Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} /> : (
+
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <Menu
+              theme="dark" mode="inline" selectedKeys={selectedCourse ? [] : [activeTab]}
+              onClick={(e) => { if (e.key !== 'catalog') { setActiveTab(e.key); setSelectedCourse(null); } }}
+              items={menuItems} style={{ borderRight: 0, marginTop: 16 }}
+            />
+          </div>
+          <div className="sdca-sider-foot" style={{ padding: collapsed ? '16px 8px' : '16px' }}>
+            {collapsed ? (
+              <Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} />
+            ) : (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}><Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} /><div style={{ overflow: 'hidden' }}><div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>Prof. {user.lastName}</div><div style={{ fontSize: '12px', color: '#757575', fontWeight: 'bold' }}>{isDean ? 'Dean' : 'Faculty'}</div></div></div>
-                <div style={{ display: 'flex', gap: 8 }}><Button icon={<SettingOutlined />} onClick={() => { form.setFieldsValue(user); setAvatarUrl(user.photoUrl); setIsProfileModalVisible(true); }} style={{ flex: 1, fontSize: '12px' }}>Settings</Button><Button danger icon={<LogoutOutlined />} onClick={onLogout} style={{ flex: 1, fontSize: '12px' }}>Logout</Button></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                  <Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} />
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>Prof. {user.lastName}</div>
+                    <div className="sdca-sider-user-sub">{isDean ? 'Dean' : 'Faculty'}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Button icon={<SettingOutlined />} onClick={() => { form.setFieldsValue(user); setAvatarUrl(user.photoUrl); setIsProfileModalVisible(true); }} style={{ flex: 1, fontSize: '12px' }}>Settings</Button>
+                  <Button danger icon={<LogoutOutlined />} onClick={onLogout} style={{ flex: 1, fontSize: '12px' }}>Logout</Button>
+                </div>
               </>
             )}
           </div>
@@ -293,6 +331,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
         <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,.06)', zIndex: 1 }}>
           <Title level={4} style={{ margin: 0, textTransform: 'capitalize' }}>{getHeaderTitle()}</Title>
           <Space size="middle" align="center">
+            <ThemeToggle />
             
             {/* Mailbox Course Alerts Popover */}
             <Popover 
@@ -372,6 +411,16 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
             <>
               {activeTab === 'dashboard' && (
                 <Row gutter={[24, 24]} justify="space-between">
+                  <Col span={24}>
+                    <BrandHero name={`Prof. ${user.lastName}`} role={isDean ? 'Dean' : 'Faculty'}
+                      subtitle="Your subjects, blocks and what is due across your classes."
+                      chips={[
+                        { label: 'Subjects', value: myCourses.length },
+                        { label: 'Blocks', value: new Set(myCourses.flatMap(c => (c.blocks || []).map(b => b.code))).size },
+                        { label: 'Upcoming', value: upcomingOnlyTasks.length },
+                        { label: 'Overdue', value: overdueOnlyTasks.length }
+                      ]} />
+                  </Col>
                   <Col xs={24} lg={15} xl={17}>
                     <Title level={5} style={{ marginBottom: 12 }}>My Assigned Subjects</Title>
                     {myCourses.length === 0 ? <Empty description="You are not assigned to any courses." /> : (
@@ -389,7 +438,9 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
                   </Col>
                   <Col xs={24} lg={9} xl={7} style={{ maxWidth: '320px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <Card size="small" headStyle={{ minHeight: '32px', padding: '0 8px', fontSize: '12px' }} bodyStyle={{ padding: '0px 4px' }} extra={<Button type="link" size="small" style={{ fontSize: '11px' }} onClick={clearDateFilter}>Clear Filter</Button>}>
+                      <Card size="small" className="sdca-cal-card" headStyle={{ minHeight: '32px', padding: '0 8px', fontSize: '12px' }} bodyStyle={{ padding: '0px 4px' }}
+                        title={<Tooltip title="Open the big calendar"><span onClick={() => openBigCalendar()}><ExpandAltOutlined className="sdca-cal-expand" /> Calendar</span></Tooltip>}
+                        extra={<Button type="link" size="small" style={{ fontSize: '11px' }} onClick={clearDateFilter}>Clear Filter</Button>}>
                         <div style={{ transform: 'scale(0.85)', transformOrigin: 'top center', margin: '-10px 0 -45px 0' }}>
                           <Calendar fullscreen={false} value={calendarDate} onChange={setCalendarDate} fullCellRender={calendarCellRender} onSelect={handleDateSelect} />
                         </div>
@@ -418,7 +469,14 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
                   </Col>
                 </Row>
               )}
-              {isDean && activeTab === 'dean' && <DeanPanel dean={user} onMyCoursesChanged={fetchCourses} />}
+              {isDean && activeTab === 'dean' && (
+                <div>
+                  <BrandHero name={`Dean ${user.lastName}`} role={user.department || "Dean's Office"}
+                    subtitle="Blocks, teaching loads and course assignments for your department."
+                    chips={[{ label: 'My subjects', value: myCourses.length }]} />
+                  <DeanPanel dean={user} onMyCoursesChanged={fetchCourses} />
+                </div>
+              )}
               {activeTab === 'network' && <Network currentUser={user} />}
               {activeTab === 'mailbox' && <Mailbox user={user} notifications={notifications} onNotificationsChange={setNotifications} courseAlerts={mailboxItems} onOpenCourse={(code) => { const c = myCourses.find(x => x.code === code); if (c) setSelectedCourse(c); }} />}
               {activeTab === 'forum' && (

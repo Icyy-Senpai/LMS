@@ -6,6 +6,9 @@ import {
   KeyOutlined, StopOutlined, CheckCircleOutlined, MoreOutlined, ApartmentOutlined
 } from '@ant-design/icons';
 import api from '../../api';
+import BrandHero from '../Shared/BrandHero';
+import ThemeToggle from '../Shared/ThemeToggle';
+import logoImage from '../../logo.png';
 import { showError, fullName } from './adminUtils';
 import UserFormModal from './UserFormModal';
 import ResetPasswordModal from './ResetPasswordModal';
@@ -159,11 +162,12 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider theme="dark" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null}>
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#b71c1c' }}>
-          <Title level={4} style={{ margin: 0, color: '#fff' }}>{collapsed ? 'ADM' : 'Admin Override'}</Title>
+      <Sider className="sdca-sider" theme="dark" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null}>
+        <div className="sdca-sider-brand" onClick={() => setActiveTab('analytics')}>
+          <img src={logoImage} alt="St. Dominic College of Asia" />
+          {!collapsed && <div className="sdca-sider-name"><b>eLMS</b><small>Administration</small></div>}
         </div>
-        <Menu theme="dark" mode="inline" selectedKeys={[activeTab]} onClick={(e) => setActiveTab(e.key)} items={[
+        <Menu theme="dark" mode="inline" selectedKeys={[activeTab]} style={{ marginTop: 16 }} onClick={(e) => setActiveTab(e.key)} items={[
           { key: 'analytics', icon: <DashboardOutlined />, label: 'System Overview' },
           { key: 'users', icon: <TeamOutlined />, label: 'User Database' },
           { key: 'courses', icon: <BookOutlined />, label: 'Course Management' },
@@ -185,13 +189,22 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
       <Layout>
         <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
           <Title level={4} style={{ margin: 0 }}>System Administration</Title>
-          <Button icon={<NotificationOutlined />} onClick={() => setBroadcastOpen(true)}>Send Announcement</Button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <ThemeToggle />
+            <Button icon={<NotificationOutlined />} onClick={() => setBroadcastOpen(true)}>Send Announcement</Button>
+          </div>
         </Header>
 
         <Content style={{ margin: 24, overflow: 'initial' }}>
           {activeTab === 'analytics' && (
             <div>
-              <Title level={4}>Platform Health & Statistics</Title>
+              <BrandHero name={user.firstName || user.username} role="Administrator"
+                subtitle="Platform health and statistics at a glance."
+                chips={[
+                  { label: 'Users', value: stats.users || 0 },
+                  { label: 'Courses', value: stats.courses || 0 },
+                  { label: 'Suspended', value: stats.suspended || 0 }
+                ]} />
               <Row gutter={[16, 16]}>
                 {statCards.map(s => (
                   <Col xs={24} sm={12} xl={6} key={s.title}>

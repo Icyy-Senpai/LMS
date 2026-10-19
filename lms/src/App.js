@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, ConfigProvider, App as AntApp } from 'antd';
-import theme from './theme';
+import { getTheme } from './theme';
+import { ThemeModeProvider, useThemeModeState } from './themeMode';
 import './App.css';
+import './dark.css';
 import Login from './components/Login';
 import StudentDashboard from './components/Student/StudentDashboard';
 import TeacherDashboard from './components/Teacher/TeacherDashboard';
@@ -14,6 +16,7 @@ export default function App() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
   
+  const themeMode = useThemeModeState();
   const [showIdlePrompt, setShowIdlePrompt] = useState(false);
   const idleTimeoutRef = useRef(null);
 
@@ -52,7 +55,8 @@ export default function App() {
   }, [user, showIdlePrompt]);
 
   return (
-    <ConfigProvider theme={theme}>
+    <ThemeModeProvider value={themeMode}>
+    <ConfigProvider theme={getTheme(themeMode.mode)}>
     <AntApp>
       <Modal
         title="Session Expiring"
@@ -88,5 +92,6 @@ export default function App() {
       )}
     </AntApp>
     </ConfigProvider>
+    </ThemeModeProvider>
   );
 }
