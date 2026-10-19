@@ -43,7 +43,7 @@ router.get('/admin/assignments', c.getAssignments);
 router.put('/admin/assignments/:id', c.updateAssignment);
 router.delete('/admin/assignments/:id', c.deleteAssignment);
 router.get('/admin/assignments/:id/submissions', c.getSubmissions);
-router.put('/admin/submissions/:id', c.updateSubmission);
+// Grading is Teacher/Dean-only (POST /assignments/grade), so admins have no route to change a grade, feedback or flag.
 router.delete('/admin/submissions/:id', c.deleteSubmission);
 
 // Forums

@@ -10,6 +10,7 @@ const quizRoutes = require('./routes/quizRoutes');
 const socialRoutes = require('./routes/socialRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const staffRoutes = require('./routes/staffRoutes');
+const badgeRoutes = require('./routes/badgeRoutes');
 
 const app = express();
 
@@ -22,6 +23,7 @@ mongoose.connect('mongodb://127.0.0.1:27017/lms_project')
 
 app.use('/api', adminRoutes); // mounted first; guarded by requireAdmin inside the router
 app.use('/api', staffRoutes); // /staff/* (teachers + deans) and /dean/* (deans only); guarded in the router
+app.use('/api', badgeRoutes); // badges: teacher/dean create + assign, student profile read
 app.use('/api', userRoutes);
 app.use('/api', courseRoutes);
 app.use('/api', forumRoutes);

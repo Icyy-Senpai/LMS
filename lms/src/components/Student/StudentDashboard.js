@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Table, Space, Select, Divider } from 'antd';
-import { UserOutlined, DashboardOutlined, FileDoneOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, MailOutlined, TrophyOutlined } from '@ant-design/icons';
+import { UserOutlined, DashboardOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, MailOutlined, TrophyOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import CourseView from './CourseView';
 import Network from '../Shared/Network';
@@ -37,6 +37,30 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
   const [leaderboardCourse, setLeaderboardCourse] = useState('all');
   
   const [notifications, setNotifications] = useState([]);
+
+  // Badges awarded by teachers / deans. Re-read whenever the profile or badges tab is opened so new ones show up.
+  const [myBadges, setMyBadges] = useState([]);
+  useEffect(() => {
+    if (activeTab !== 'profile' && activeTab !== 'grades') return;
+    api.get(`/badges/student/${user.schoolId}`)
+      .then(res => { if (res.data.success) setMyBadges(res.data.badges); })
+      .catch(() => { /* non-critical */ });
+  }, [activeTab, user.schoolId]);
+  const badgeGrid = myBadges.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No badges earned yet." /> : (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+      {myBadges.map(b => (
+        <div key={b._id} style={{ width: 180, padding: 12, textAlign: 'center', border: '1px solid #f0f0f0', borderRadius: 8, background: '#fafafa' }}>
+          <img src={b.photoUrl} alt={b.name} style={{ width: 96, height: 96, objectFit: 'contain' }} />
+          <div style={{ marginTop: 6 }}><Text strong>{b.name}</Text></div>
+          <Tag color="red" style={{ margin: '4px 0' }}>{b.course}</Tag>
+          {b.courseName && <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>{b.courseName}</Text>}
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+            {b.awardedAt ? `Awarded ${dayjs(b.awardedAt).format('MMM D, YYYY')}` : ''}{b.awardedBy ? ` · ${b.awardedBy}` : ''}
+          </Text>
+        </div>
+      ))}
+    </div>
+  );
   const [mailboxItems, setMailboxItems] = useState([]);
   const [taskToOpen, setTaskToOpen] = useState(null); // upcoming task the student clicked; drives the "go to this task?" prompt
 
@@ -310,7 +334,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
         <div style={{ width: '100%' }}>Course Catalog</div>
       </Popover>
     )},
-    { key: 'grades', icon: <FileDoneOutlined />, label: 'Grades & Certificates' },
+    { key: 'grades', icon: <TrophyOutlined />, label: 'Badges' },
     { key: 'network', icon: <UserOutlined />, label: 'Friends & Chat' },
     { key: 'forum', icon: <CommentOutlined />, label: 'Forums' },
     { key: 'mailbox', icon: <MailOutlined />, label: <span>Mailbox <Badge count={notifications.filter(n => !n.isRead).length} size="small" /></span> },
@@ -570,7 +594,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                 </div>
               )}
               {activeTab === 'grades' && (
-                <Card style={{ textAlign: 'center', padding: '50px 0' }}><FileDoneOutlined style={{ fontSize: 48, color: '#d9d9d9', marginBottom: 16 }} /><br /><Text type="secondary">You have not earned any certificates yet.</Text></Card>
+                <Card title={<span><TrophyOutlined /> My Badges ({myBadges.length})</span>}>{badgeGrid}</Card>
               )}
               {activeTab === 'profile' && (
                 <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -602,6 +626,9 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                       ) },
                       { key: 'courses', label: 'Courses', children: (
                         <List dataSource={currentlyEnrolled} locale={{ emptyText: 'No enrolled courses found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Tag color="red">{course.code}</Tag>} /></List.Item>)} />
+                      ) },
+                      { key: 'badges', label: <span><TrophyOutlined /> Badges ({myBadges.length})</span>, children: (
+                        badgeGrid
                       ) },
                       { key: 'completed', label: <span><TrophyOutlined /> Completed Courses ({completedCourses.length})</span>, children: (
                         <List dataSource={completedCourses} locale={{ emptyText: 'No completed courses yet.' }} renderItem={course => (

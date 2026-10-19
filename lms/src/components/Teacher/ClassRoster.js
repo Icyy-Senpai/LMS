@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Button, Popconfirm, Tag, Typography, Space, Empty, message } from 'antd';
-import { CheckCircleOutlined, TrophyOutlined, SwapOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, TrophyOutlined, SwapOutlined, StarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../../api';
 import ReassignBlockModal from './ReassignBlockModal';
+import AssignBadgeModal from './AssignBadgeModal';
 
 const { Text } = Typography;
 
@@ -18,6 +19,7 @@ export default function ClassRoster({ course, teacher }) {
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
   const [moving, setMoving] = useState(null); // student whose block is being changed
+  const [badgeFor, setBadgeFor] = useState(null); // student a badge is being assigned to
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,6 +66,7 @@ export default function ClassRoster({ course, teacher }) {
           okText="Mark Completed" cancelText="Cancel" onConfirm={() => complete([s.schoolId])}>
           <Button size="small" type="primary" icon={<CheckCircleOutlined />} disabled={busy}>Mark Completed</Button>
         </Popconfirm>
+        <Button size="small" icon={<StarOutlined />} onClick={() => setBadgeFor(s)}>Assign Badge</Button>
         <Button size="small" icon={<SwapOutlined />} onClick={() => setMoving(s)}>Change Block</Button>
       </Space>
     ) }
@@ -76,7 +79,8 @@ export default function ClassRoster({ course, teacher }) {
     { title: 'Marked by', key: 'by', render: (_, s) => s.completion?.completedBy || '-' },
     { title: 'Block', key: 'block', render: (_, s) => (
       <Space>{s.block || '-'}<Button size="small" icon={<SwapOutlined />} onClick={() => setMoving(s)}>Change</Button></Space>
-    ) }
+    ) },
+    { title: 'Action', key: 'badge', render: (_, s) => <Button size="small" icon={<StarOutlined />} onClick={() => setBadgeFor(s)}>Assign Badge</Button> }
   ];
 
   return (
@@ -100,6 +104,7 @@ export default function ClassRoster({ course, teacher }) {
 
       <ReassignBlockModal open={Boolean(moving)} personLabel={moving ? nameOf(moving) : ''} currentBlock={moving?.block}
         onClose={() => setMoving(null)} onSubmit={reassignBlock} />
+      <AssignBadgeModal open={Boolean(badgeFor)} course={course} student={badgeFor} onClose={() => setBadgeFor(null)} />
     </Card>
   );
 }

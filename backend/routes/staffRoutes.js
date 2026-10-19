@@ -12,6 +12,10 @@ router.put('/staff/students/block', requireTeacher, staff.reassignStudentBlock);
 router.get('/dean/users', requireDean, staff.getDeanUsers);
 router.get('/dean/courses', requireDean, admin.getAllCourses);
 router.put('/dean/teachers/block', requireDean, staff.reassignTeacherBlock);
+router.post('/dean/blocks', requireDean, staff.createBlock);
+// A Dean assigns / takes over / releases courses for themselves
+router.post('/dean/courses/:code/claim', requireDean, staff.claimCourse);
+router.post('/dean/courses/:code/release', requireDean, staff.releaseCourse);
 // Reassigning users with courses (enrol / unenrol students, assign / remove instructors) used to be an Admin feature.
 router.post('/dean/assign-course', requireDean, admin.assignUserCourse);
 router.post('/dean/remove-course', requireDean, admin.removeUserCourse);

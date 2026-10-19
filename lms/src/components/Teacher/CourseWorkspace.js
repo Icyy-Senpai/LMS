@@ -3,6 +3,7 @@ import { message } from 'antd';
 import AssignmentBuilder from './AssignmentBuilder';
 import GradingSection from './GradingSection';
 import ClassRoster from './ClassRoster';
+import BadgesSection from './BadgesSection';
 import api from '../../api';
 
 export default function CourseWorkspace({ course, onBack, teacher }) {
@@ -135,6 +136,9 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
 
         {/* Class roster: mark registered students' course as completed */}
         {teacher && <ClassRoster course={course} teacher={teacher} />}
+
+        {/* Badges: create badges for this course and (from the roster above) assign them to students */}
+        {teacher && <BadgesSection course={course} />}
         
         {/* Announcements Section */}
         <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>

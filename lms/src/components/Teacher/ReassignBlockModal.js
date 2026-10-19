@@ -8,7 +8,7 @@ const { Text } = Typography;
  * Pick a different block for a student (teachers + deans) or a teacher (deans).
  * `onSubmit(block)` must return a promise; the modal closes when it resolves and shows the server's error when it rejects.
  */
-export default function ReassignBlockModal({ open, personLabel, currentBlock, onClose, onSubmit }) {
+export default function ReassignBlockModal({ open, personLabel, currentBlock, studentMove = true, onClose, onSubmit }) {
   const [blocks, setBlocks] = useState([]);
   const [target, setTarget] = useState();
   const [loading, setLoading] = useState(false);
@@ -33,7 +33,11 @@ export default function ReassignBlockModal({ open, personLabel, currentBlock, on
   };
 
   const options = blocks.filter(b => b.code !== currentBlock)
-    .map(b => ({ value: b.code, label: `${b.code}  (${b.studentCount} students, ${b.teacherCount} teachers)` }));
+    .map(b => {
+      const full = Boolean(b.maxAmountOfStudents) && b.studentCount >= b.maxAmountOfStudents;
+      const cap = b.maxAmountOfStudents ? `${b.studentCount}/${b.maxAmountOfStudents} students` : `${b.studentCount} students`;
+      return { value: b.code, label: `${b.code}  (${cap}, ${b.teacherCount} teachers)${full ? ' - full' : ''}`, disabled: full && studentMove };
+    });
 
   return (
     <Modal title={`Reassign block: ${personLabel || ''}`} open={open} onCancel={onClose} onOk={submit}

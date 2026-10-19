@@ -1,6 +1,7 @@
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 const Student = require('../models/Student');
+const Course = require('../models/Course');
 
 const getAssignmentsByCourse = async (req, res) => {
   try {
@@ -82,6 +83,11 @@ const gradeSubmission = async (req, res) => {
   try {
     const submission = await Submission.findById(submissionId);
     if (!submission) return res.status(404).json({ success: false, message: 'Submission not found' });
+
+    const course = await Course.findOne({ code: submission.courseCode });
+    if (!course || course.instructorID !== req.teacher.schoolId) {
+      return res.status(403).json({ success: false, message: 'You can only grade submissions for courses you instruct.' });
+    }
 
     const prevGrade = submission.grade || 0;
     const newGrade = Number(grade);

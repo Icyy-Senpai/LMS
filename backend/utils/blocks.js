@@ -8,7 +8,7 @@ const Block = require('../models/Block');
  */
 const listBlocks = async () => {
   const [docs, studentBlocks, teacherBlocks] = await Promise.all([
-    Block.find({}, 'code name').lean(),
+    Block.find({}, 'code name maxAmountOfStudents').lean(),
     Student.distinct('block'),
     Teacher.distinct('block')
   ]);
@@ -21,7 +21,8 @@ const listBlocks = async () => {
     const [studentCount, teacherCount] = await Promise.all([
       Student.countDocuments({ block: code }), Teacher.countDocuments({ block: code })
     ]);
-    result.push({ code, studentCount, teacherCount });
+    const doc = docs.find(d => d.code === code);
+    result.push({ code, name: doc?.name || code, maxAmountOfStudents: doc?.maxAmountOfStudents ?? null, studentCount, teacherCount });
   }
   return result;
 };

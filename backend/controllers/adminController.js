@@ -438,25 +438,6 @@ const getSubmissions = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to load submissions.'); }
 };
 
-const updateSubmission = async (req, res) => {
-  const { grade, feedback, cheatingFlag } = req.body;
-  try {
-    const sub = await Submission.findById(req.params.id);
-    if (!sub) return res.status(404).json({ success: false, message: 'Submission not found.' });
-    if (grade !== undefined && grade !== null && grade !== '') {
-      const prev = sub.grade || 0;
-      sub.grade = Number(grade);
-      // same EXP rule teachers trigger in assignmentController.gradeSubmission
-      const diff = sub.grade - prev;
-      if (diff !== 0) await Student.updateOne({ schoolId: sub.studentUsername }, { $inc: { points: diff } });
-    }
-    if (feedback !== undefined) sub.feedback = feedback;
-    if (cheatingFlag !== undefined) sub.cheatingFlag = !!cheatingFlag;
-    await sub.save();
-    res.json({ success: true, message: 'Submission updated.' });
-  } catch (err) { fail(res, err, 'Failed to update submission.'); }
-};
-
 const deleteSubmission = async (req, res) => {
   try {
     await Submission.findByIdAndDelete(req.params.id);
@@ -667,12 +648,13 @@ const changeOwnPassword = async (req, res) => {
 };
 
 module.exports = {
+  setCourseInstructor, // re-used by the Dean's claim / release endpoints (staffController)
   getSystemStats,
   getAllUsers, createUser, previewNextSchoolId, updateUser, setUserStatus, resetUserPassword, deleteUser,
   getDepartments, createDepartment, updateDepartment, deleteDepartment,
   getAllCourses, createCourse, updateCourse, deleteCourse, getCourseRoster, assignUserCourse, removeUserCourse,
   getCourseContent, addContentItem, updateContentItem, deleteContentItem,
-  getAssignments, updateAssignment, deleteAssignment, getSubmissions, updateSubmission, deleteSubmission,
+  getAssignments, updateAssignment, deleteAssignment, getSubmissions, deleteSubmission,
   getAllForums, createForum, updateForum, deleteForum, addForumReply, updateForumReply, deleteForumReply,
   broadcast, updateOwnProfile, changeOwnPassword
 };

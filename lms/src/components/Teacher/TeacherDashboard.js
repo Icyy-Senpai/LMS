@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Space, Divider, Select } from 'antd';
 import { UserOutlined, DashboardOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, FolderOpenOutlined, MailOutlined, CrownOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -65,20 +65,18 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.schoolId]);
 
-  // Fetch Courses
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const response = await api.get('/courses');
-        if (response.data.success) {
-          const assigned = response.data.courses.filter(c => c.instructorID === user.schoolId);
-          setMyCourses(assigned);
-        }
-      } catch (error) { message.error('Failed to load courses'); } 
-      finally { setLoadingCourses(false); }
-    };
-    fetchCourses();
+  // Fetch Courses (re-run by the Dean's Office when a Dean assigns / releases a course for themselves)
+  const fetchCourses = useCallback(async () => {
+    try {
+      const response = await api.get('/courses');
+      if (response.data.success) {
+        const assigned = response.data.courses.filter(c => c.instructorID === user.schoolId);
+        setMyCourses(assigned);
+      }
+    } catch (error) { message.error('Failed to load courses'); }
+    finally { setLoadingCourses(false); }
   }, [user.schoolId]);
+  useEffect(() => { fetchCourses(); }, [fetchCourses]);
 
   // Fetch Global Notifications
   useEffect(() => {
@@ -412,7 +410,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
                   </Col>
                 </Row>
               )}
-              {isDean && activeTab === 'dean' && <DeanPanel dean={user} />}
+              {isDean && activeTab === 'dean' && <DeanPanel dean={user} onMyCoursesChanged={fetchCourses} />}
               {activeTab === 'network' && <Network currentUser={user} />}
               {activeTab === 'mailbox' && <Mailbox user={user} notifications={notifications} onNotificationsChange={setNotifications} courseAlerts={mailboxItems} onOpenCourse={(code) => { const c = myCourses.find(x => x.code === code); if (c) setSelectedCourse(c); }} />}
               {activeTab === 'forum' && (
