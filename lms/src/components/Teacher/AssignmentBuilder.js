@@ -93,9 +93,9 @@ function AIQuizGenerator({ courseCode, onQuizSaved }) {
         type="primary" 
         icon={<RobotOutlined />} 
         onClick={() => setIsModalVisible(true)} 
-        style={{ backgroundColor: '#722ed1', borderColor: '#722ed1' }}
+        style={{ backgroundColor: '#424242', borderColor: '#424242' }}
       >
-        Generate AI Quiz
+        Generate Quiz
       </Button>
 
       <Modal title="Generate Quiz with AI" open={isModalVisible} onCancel={() => setIsModalVisible(false)} width={800} footer={null} destroyOnClose>
@@ -285,7 +285,7 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
           </Upload>
         </fieldset>
 
-        <button type="submit" style={{ padding: '10px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}>Create Manual Assignment</button>
+        <button type="submit" style={{ padding: '10px', background: '#c62828', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}>Create Manual Assignment</button>
       </form>
 
       <h4>Active Assignments & Quizzes</h4>
@@ -293,7 +293,7 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
         {assignments.map(ass => (
           <li key={ass._id} style={{ marginBottom: '10px', padding: '15px', border: '1px solid #e8e8e8', listStyle: 'none', borderRadius: '4px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ fontSize: '16px', color: ass.type === 'Quiz' ? '#722ed1' : 'inherit' }}>{ass.title}</strong>
+              <strong style={{ fontSize: '16px', color: ass.type === 'Quiz' ? '#424242' : 'inherit' }}>{ass.title}</strong>
               <button onClick={() => handleDeleteAssignment(ass._id)} style={{ color: 'red', cursor: 'pointer', border: 'none', background: 'none' }}>Delete</button>
             </div>
             <div style={{ color: 'gray', fontSize: '13px', marginTop: '5px' }}>
@@ -302,7 +302,7 @@ export default function AssignmentBuilder({ courseCode, assignments, setAssignme
             <div style={{ fontSize: '13px', marginTop: '5px' }}>
                 Submissions: <strong>{ass.submissions?.length || 0}</strong>
                 {ass.type === 'Quiz' && ass.questions && (
-                <span style={{ color: '#722ed1', marginLeft: '15px' }}>Questions: <strong>{ass.questions.length}</strong></span>
+                <span style={{ color: '#424242', marginLeft: '15px' }}>Questions: <strong>{ass.questions.length}</strong></span>
                 )}
             </div>
           </li>

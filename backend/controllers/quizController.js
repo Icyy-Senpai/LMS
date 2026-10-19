@@ -5,9 +5,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+require('dotenv').config(); 
 
 // Ensure you replace the fallback string with your actual env variable in production
-const genAI = new GoogleGenerativeAI(process.env.GCP_API_KE);
+const genAI = new GoogleGenerativeAI(process.env.GCP_API_KEY);
 
 const generateQuizFromPDF = async (req, res) => {
   try {

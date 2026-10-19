@@ -142,7 +142,7 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
           <form onSubmit={handleAddAnnouncement} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
             <input type="text" placeholder="Title" value={annTitle} onChange={(e) => setAnnTitle(e.target.value)} required style={{ padding: '6px' }} />
             <input type="text" placeholder="Details" value={annContent} onChange={(e) => setAnnContent(e.target.value)} required style={{ padding: '6px', flex: 1 }} />
-            <button type="submit" style={{ padding: '6px 12px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Post</button>
+            <button type="submit" style={{ padding: '6px 12px', background: '#c62828', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Post</button>
           </form>
           <ul style={{ paddingLeft: '20px' }}>
             {courseContent.announcements?.map((ann, idx) => (
@@ -160,12 +160,12 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
           <form onSubmit={handleAddVideo} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
             <input type="text" placeholder="Video Title" value={vidTitle} onChange={(e) => setVidTitle(e.target.value)} required style={{ padding: '6px' }} />
             <input type="text" placeholder="Video URL" value={vidUrl} onChange={(e) => setVidUrl(e.target.value)} required style={{ padding: '6px', flex: 1 }} />
-            <button type="submit" style={{ padding: '6px 12px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add Video</button>
+            <button type="submit" style={{ padding: '6px 12px', background: '#c62828', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add Video</button>
           </form>
           <ul style={{ paddingLeft: '20px' }}>
             {courseContent.videos?.map((vid, idx) => (
               <li key={idx} style={{ marginBottom: '10px' }}>
-                <a href={vid.url} target="_blank" rel="noreferrer" style={{ color: '#1890ff', fontWeight: 'bold' }}>{vid.title}</a>
+                <a href={vid.url} target="_blank" rel="noreferrer" style={{ color: '#c62828', fontWeight: 'bold' }}>{vid.title}</a>
                 <button onClick={() => handleDeleteVideo(idx)} style={{ marginLeft: '10px', color: 'red', cursor: 'pointer', border: 'none', background: 'transparent' }}>Delete</button>
               </li>
             ))}
@@ -186,7 +186,7 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
                 <input id="matFileInput" type="file" onChange={(e) => setMatFile(e.target.files[0])} accept=".pdf,.docx,.pptx" />
             </div>
 
-            <button type="submit" style={{ padding: '6px 12px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add Material</button>
+            <button type="submit" style={{ padding: '6px 12px', background: '#c62828', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add Material</button>
           </form>
           
           <ul style={{ paddingLeft: '20px' }}>
@@ -197,7 +197,7 @@ export default function CourseWorkspace({ course, onBack, teacher }) {
                     download={mat.fileData ? mat.fileName : undefined} 
                     target={mat.fileData ? "_self" : "_blank"} 
                     rel="noreferrer" 
-                    style={{ color: '#1890ff', fontWeight: 'bold', textDecoration: 'none' }}
+                    style={{ color: '#c62828', fontWeight: 'bold', textDecoration: 'none' }}
                 >
                     {mat.title} {mat.fileName ? `(File: ${mat.fileName})` : '(Link)'}
                 </a>

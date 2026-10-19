@@ -57,7 +57,7 @@ export default function DepartmentsPanel({ departments, loading, onChanged }) {
     { title: 'Department / Program', dataIndex: 'name', render: n => <Text strong>{n}</Text> },
     { title: 'Code', dataIndex: 'code', render: c => c || '-' },
     { title: 'Students', dataIndex: 'studentCount', render: n => <Tag color="green">{n || 0}</Tag> },
-    { title: 'Teachers', dataIndex: 'teacherCount', render: n => <Tag color="blue">{n || 0}</Tag> },
+    { title: 'Teachers', dataIndex: 'teacherCount', render: n => <Tag color="red">{n || 0}</Tag> },
     { title: 'Courses', dataIndex: 'courseCount', render: n => <Tag>{n || 0}</Tag> },
     { title: 'Description', dataIndex: 'description', ellipsis: true, render: d => d || '-' },
     { title: 'Actions', key: 'actions', render: (_, d) => {

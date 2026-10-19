@@ -109,7 +109,7 @@ export default function Forum({ courseCode, currentUser }) {
             </div>
             <Title level={4} style={{ marginTop: '10px' }}>{activeThread.title}</Title>
             <Paragraph style={{ fontSize: '15px' }}>{activeThread.content}</Paragraph>
-            <Tag color="blue"><UpOutlined /> {activeThread.upvotes} Upvotes</Tag>
+            <Tag color="red"><UpOutlined /> {activeThread.upvotes} Upvotes</Tag>
           </Card>
 
           <Title level={5}>Comments ({activeThread.replies?.length || 0})</Title>

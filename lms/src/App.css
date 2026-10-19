@@ -1,38 +1,120 @@
-.App {
+/* ---------- Login screen ---------- */
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgba(198, 40, 40, 0.08) 0%, transparent 45%),
+    linear-gradient(315deg, rgba(66, 66, 66, 0.08) 0%, transparent 45%),
+    var(--gray-bg);
+  transition: background 0.3s;
+}
+
+.login-page.admin {
+  background:
+    linear-gradient(135deg, rgba(198, 40, 40, 0.35) 0%, transparent 50%),
+    var(--charcoal);
+}
+
+.login-toggle {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--white);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+.login-card-banner {
+  background: var(--red);
+  color: var(--white);
+  padding: 28px 32px 22px;
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.login-page.admin .login-card-banner {
+  background: linear-gradient(135deg, var(--red-dark), #7f0000);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.login-card-banner h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.login-card-banner p {
+  margin: 6px 0 0;
+  opacity: 0.85;
+  font-size: 14px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px 32px 32px;
+}
+
+.login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-dark);
+}
+
+.login-form input {
+  width: 100%;
+  padding: 11px 12px;
+  font-size: 14px;
+  background: #fafafa;
+}
+
+.login-form input:focus {
+  background: var(--white);
+}
+
+.login-submit {
+  margin-top: 6px;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--red);
+  color: var(--white);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(198, 40, 40, 0.3);
+}
+
+.login-submit:hover:not(:disabled) {
+  background: var(--red-dark);
+}
+
+.login-submit:disabled {
+  background: #bdbdbd;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ---------- Invalid role fallback ---------- */
+.role-error {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  height: 100vh;
+  background: var(--gray-bg);
+  color: var(--charcoal);
 }

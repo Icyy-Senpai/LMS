@@ -93,7 +93,7 @@ export default function Network({ currentUser }) {
         )}
 
         <List size="small" header={<Text strong>My Friends</Text>} dataSource={friends} locale={{emptyText: 'No friends yet.'}} renderItem={friend => (
-          <List.Item style={{ cursor: 'pointer', background: activeChat?.schoolId === friend.schoolId ? '#e6f7ff' : 'transparent', padding: '10px', borderRadius: '4px' }} onClick={() => { setActiveChat(friend); fetchMessages(friend.schoolId); }}>
+          <List.Item style={{ cursor: 'pointer', background: activeChat?.schoolId === friend.schoolId ? '#fdecea' : 'transparent', padding: '10px', borderRadius: '4px' }} onClick={() => { setActiveChat(friend); fetchMessages(friend.schoolId); }}>
             <List.Item.Meta avatar={<Avatar src={friend.photoUrl} icon={<UserOutlined />} />} title={`${friend.firstName} ${friend.lastName}`} description={friend.schoolId} />
           </List.Item>
         )} />
@@ -109,7 +109,7 @@ export default function Network({ currentUser }) {
               {messages.map(msg => {
                 const isMe = msg.sender === currentUser.schoolId;
                 return (
-                  <div key={msg._id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '70%', background: isMe ? '#1890ff' : '#f0f0f0', color: isMe ? '#fff' : '#000', padding: '10px 15px', borderRadius: '15px' }}>
+                  <div key={msg._id} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '70%', background: isMe ? '#c62828' : '#f0f0f0', color: isMe ? '#fff' : '#000', padding: '10px 15px', borderRadius: '15px' }}>
                     {msg.content}
                     <div style={{ fontSize: '10px', marginTop: '5px', textAlign: 'right', opacity: 0.7 }}>{new Date(msg.createdAt).toLocaleTimeString()}</div>
                   </div>

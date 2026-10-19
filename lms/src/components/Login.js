@@ -12,11 +12,11 @@ export default function Login({ onLoginSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    
+
     try {
       // The backend userController handles 'email' as either an email or a username
       const response = await api.post('/login', { email, password });
-      
+
       if (response.data.success) {
         message.success('Login successful!');
         onLoginSuccess(response.data.user);
@@ -30,60 +30,47 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'sans-serif', background: isAdminLogin ? '#141414' : '#f0f2f5', transition: 'background 0.3s' }}>
-      
+    <div className={`login-page${isAdminLogin ? ' admin' : ''}`}>
+
       {/* Admin Toggle Button - Top Left */}
-      <div style={{ position: 'absolute', top: 20, left: 20 }}>
-        <Button 
-            type={isAdminLogin ? "default" : "primary"} 
-            danger={isAdminLogin}
-            icon={<SafetyCertificateOutlined />} 
+      <div className="login-toggle">
+        <Button
+            type={isAdminLogin ? "primary" : "default"}
+            icon={<SafetyCertificateOutlined />}
             onClick={() => { setIsAdminLogin(!isAdminLogin); setEmail(''); setPassword(''); }}
         >
             {isAdminLogin ? 'Return to Student/Faculty Login' : 'Admin Access'}
         </Button>
       </div>
 
-      <div style={{ border: isAdminLogin ? '2px solid #ff4d4f' : '2px solid transparent', padding: '40px', width: '350px', borderRadius: '8px', backgroundColor: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-        <h2 style={{ textAlign: 'center', margin: '0 0 10px 0', color: isAdminLogin ? '#cf1322' : '#000' }}>
-            {isAdminLogin ? 'System Administration' : 'LMS Portal'}
-        </h2>
-        <p style={{ textAlign: 'center', margin: '0 0 20px 0', color: '#666' }}>
-            {isAdminLogin ? 'Sign in with your Admin credentials' : 'Sign in to your account'}
-        </p>
-        
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+      <div className="login-card">
+        <div className="login-card-banner">
+          <h2>{isAdminLogin ? 'System Administration' : 'LMS Portal'}</h2>
+          <p>{isAdminLogin ? 'Sign in with your Admin credentials' : 'Sign in to your account'}</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="login-form">
           <label>
-            <strong>{isAdminLogin ? 'Admin Username / Email:' : 'Email:'}</strong>
-            <input 
-              type={isAdminLogin ? "text" : "email"} 
-              placeholder={isAdminLogin ? "Enter admin username" : "Enter your school email"} 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-              required 
-              style={{ width: '100%', marginTop: '5px', padding: '10px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #d9d9d9' }} 
+            {isAdminLogin ? 'Admin Username / Email' : 'Email'}
+            <input
+              type={isAdminLogin ? "text" : "email"}
+              placeholder={isAdminLogin ? "Enter admin username" : "Enter your school email"}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
             />
           </label>
           <label>
-            <strong>Password:</strong>
-            <input 
-              type="password" 
-              placeholder="Enter your password" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-              required 
-              style={{ width: '100%', marginTop: '5px', padding: '10px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #d9d9d9' }} 
+            Password
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
           </label>
-          <button 
-            type="submit" 
-            disabled={loading} 
-            style={{ 
-                padding: '12px', marginTop: '10px', cursor: 'pointer', 
-                backgroundColor: loading ? '#ccc' : (isAdminLogin ? '#cf1322' : '#1890ff'), 
-                color: 'white', border: 'none', fontWeight: 'bold', borderRadius: '4px' 
-            }}
-          >
+          <button type="submit" disabled={loading} className="login-submit">
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>

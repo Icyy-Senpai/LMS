@@ -163,7 +163,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
     const dayTasks = teacherAssignments.filter(task => task.calendarFilter === cellDateStr);
     return (
       <div style={{ textAlign: 'center', fontSize: '11px', padding: '2px 0' }}>
-        <div style={{ display: 'inline-block', width: '22px', height: '22px', lineHeight: '22px', borderRadius: '50%', backgroundColor: isSelected ? '#1890ff' : 'transparent', color: isSelected ? '#fff' : 'inherit', border: isToday && !isSelected ? '1px solid #1890ff' : '1px solid transparent', fontWeight: isSelected || isToday ? 'bold' : 'normal', transition: 'all 0.2s' }}>
+        <div style={{ display: 'inline-block', width: '22px', height: '22px', lineHeight: '22px', borderRadius: '50%', backgroundColor: isSelected ? '#c62828' : 'transparent', color: isSelected ? '#fff' : 'inherit', border: isToday && !isSelected ? '1px solid #c62828' : '1px solid transparent', fontWeight: isSelected || isToday ? 'bold' : 'normal', transition: 'all 0.2s' }}>
           {value.date()}
         </div>
         {dayTasks.length > 0 && <div style={{ marginTop: -4 }}><Badge dot color={isSelected ? 'white' : 'blue'} /></div>}
@@ -252,13 +252,13 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
       <Sider theme="light" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null} style={{ borderRight: '1px solid #f0f0f0' }}>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <div onClick={() => { setActiveTab('dashboard'); setSelectedCourse(null); }} style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', transition: 'background-color 0.3s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fafafa'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-            {collapsed ? <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /> : <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /><Title level={4} style={{ margin: '0 0 0 5px', color: '#1890ff' }}>eLMS Faculty</Title></div>}
+            {collapsed ? <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /> : <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /><Title level={4} style={{ margin: '0 0 0 5px', color: '#c62828' }}>eLMS Faculty</Title></div>}
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}><Menu mode="inline" selectedKeys={selectedCourse ? [] : [activeTab]} onClick={(e) => { if(e.key !== 'catalog') { setActiveTab(e.key); setSelectedCourse(null); } }} items={menuItems} style={{ borderRight: 0, marginTop: 16 }} /></div>
           <div style={{ padding: collapsed ? '16px 8px' : '16px', borderTop: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}>
-            {collapsed ? <Avatar src={user.photoUrl} style={{ backgroundColor: '#1890ff' }} icon={!user.photoUrl && <UserOutlined />} /> : (
+            {collapsed ? <Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} /> : (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}><Avatar src={user.photoUrl} style={{ backgroundColor: '#1890ff' }} icon={!user.photoUrl && <UserOutlined />} /><div style={{ overflow: 'hidden' }}><div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>Prof. {user.lastName}</div><div style={{ fontSize: '12px', color: '#52c41a', fontWeight: 'bold' }}>Faculty</div></div></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}><Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} /><div style={{ overflow: 'hidden' }}><div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>Prof. {user.lastName}</div><div style={{ fontSize: '12px', color: '#757575', fontWeight: 'bold' }}>Faculty</div></div></div>
                 <div style={{ display: 'flex', gap: 8 }}><Button icon={<SettingOutlined />} onClick={() => { form.setFieldsValue(user); setAvatarUrl(user.photoUrl); setIsProfileModalVisible(true); }} style={{ flex: 1, fontSize: '12px' }}>Settings</Button><Button danger icon={<LogoutOutlined />} onClick={onLogout} style={{ flex: 1, fontSize: '12px' }}>Logout</Button></div>
               </>
             )}
@@ -267,7 +267,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
       </Sider>
 
       <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,21,41,.08)', zIndex: 1 }}>
+        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,.06)', zIndex: 1 }}>
           <Title level={4} style={{ margin: 0, textTransform: 'capitalize' }}>{getHeaderTitle()}</Title>
           <Space size="middle" align="center">
             
@@ -283,7 +283,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                       itemLayout="horizontal"
                       dataSource={mailboxItems}
                       renderItem={item => (
-                        <List.Item style={{ padding: '10px', background: item.isUrgent ? '#fff1f0' : '#f0f5ff', borderBottom: '1px solid #f0f0f0' }}>
+                        <List.Item style={{ padding: '10px', background: item.isUrgent ? '#fff1f0' : '#fff5f5', borderBottom: '1px solid #f0f0f0' }}>
                           <List.Item.Meta 
                             avatar={<Tag color={item.isUrgent ? 'red' : 'blue'} style={{ marginTop: '5px' }}>{item.courseCode}</Tag>}
                             title={<span style={{ fontSize: '13px', fontWeight: 'bold', color: item.isUrgent ? 'red' : 'inherit' }}>{item.title}</span>} 
@@ -301,7 +301,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
             >
               <Badge count={mailboxItems.filter(i => i.isUrgent).length} color="red" style={{ cursor: 'pointer' }}>
                 <Button type="text" style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
-                  <MailOutlined style={{ fontSize: 22, color: '#1890ff' }} />
+                  <MailOutlined style={{ fontSize: 22, color: '#c62828' }} />
                 </Button>
               </Badge>
             </Popover>
@@ -318,7 +318,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                       itemLayout="horizontal"
                       dataSource={notifications}
                       renderItem={item => (
-                        <List.Item style={{ padding: '10px', background: item.isRead ? 'transparent' : '#f0f5ff', borderBottom: '1px solid #f0f0f0' }}>
+                        <List.Item style={{ padding: '10px', background: item.isRead ? 'transparent' : '#fff5f5', borderBottom: '1px solid #f0f0f0' }}>
                           <List.Item.Meta 
                             title={<span style={{ fontSize: '13px', fontWeight: item.isRead ? 'normal' : 'bold' }}>{item.title}</span>} 
                             description={<span style={{ fontSize: '12px', color: '#595959' }}>{item.message}</span>} 
@@ -352,8 +352,8 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                         {myCourses.map(course => (
                           <Col xs={24} sm={12} md={12} xl={8} key={course.code}>
                             <Card hoverable bodyStyle={{ padding: 0 }} onClick={() => setSelectedCourse(course)}>
-                              <div style={{ height: 60, backgroundColor: course.color || '#1890ff' }} />
-                              <div style={{ padding: 16 }}><Text type="secondary" strong>{course.code}</Text><Title level={5} style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</Title><Space style={{ marginTop: 8 }}><Tag color="cyan">{course.targetProgram}</Tag><Tag color="blue">{course.targetYear}</Tag></Space></div>
+                              <div style={{ height: 60, backgroundColor: course.color || '#c62828' }} />
+                              <div style={{ padding: 16 }}><Text type="secondary" strong>{course.code}</Text><Title level={5} style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</Title><Space style={{ marginTop: 8 }}><Tag color="default">{course.targetProgram}</Tag><Tag color="red">{course.targetYear}</Tag></Space></div>
                             </Card>
                           </Col>
                         ))}
@@ -372,7 +372,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                           <List size="small" dataSource={upcomingOnlyTasks} locale={{ emptyText: 'No upcoming tasks.' }} renderItem={item => (
                             <List.Item style={{ padding: '4px 0', borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }} onClick={() => setSelectedCourse({ code: item.courseCode, name: item.courseName })}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <Space size={4}><FolderOpenOutlined style={{ color: '#1890ff', fontSize: '12px' }} /><Tag color="geekblue" style={{ margin: 0, fontSize: '9px' }}>{item.courseCode}</Tag><Text style={{ fontSize: '11px', fontWeight: 500 }}>{item.title}</Text></Space>
+                                <Space size={4}><FolderOpenOutlined style={{ color: '#c62828', fontSize: '12px' }} /><Tag color="volcano" style={{ margin: 0, fontSize: '9px' }}>{item.courseCode}</Tag><Text style={{ fontSize: '11px', fontWeight: 500 }}>{item.title}</Text></Space>
                                 <div style={{ textAlign: 'right' }}><Text type="secondary" style={{ fontSize: '10px', display: 'block' }}>{item.dateStr}</Text><Text style={{ fontSize: '10px', color: '#52c41a' }}>{item.submissions?.length || 0} Submitted</Text></div>
                               </div>
                             </List.Item>
@@ -381,7 +381,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                           <List size="small" dataSource={overdueCoursesList} locale={{ emptyText: 'No overdue tasks.' }} renderItem={courseGroup => (
                             <List.Item style={{ padding: '6px 4px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }} onClick={() => handleCourseClick(courseGroup.code, courseGroup.name)}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <Space size={4}><Tag color="red" style={{ margin: '0 0 9px' }}>{courseGroup.code}</Tag><Text style={{ fontSize: '12px', fontWeight: 600, color: '#1890ff' }}>{courseGroup.name}</Text></Space><Badge count={courseGroup.tasks.length} style={{ backgroundColor: '#ff4d4f' }} />
+                                <Space size={4}><Tag color="red" style={{ margin: '0 0 9px' }}>{courseGroup.code}</Tag><Text style={{ fontSize: '12px', fontWeight: 600, color: '#c62828' }}>{courseGroup.name}</Text></Space><Badge count={courseGroup.tasks.length} style={{ backgroundColor: '#ff4d4f' }} />
                               </div>
                             </List.Item>
                           )} />
@@ -406,7 +406,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                 <div style={{ maxWidth: 900, margin: '0 auto' }}>
                   <Card style={{ marginBottom: 20 }}>
                     <Row gutter={24} align="middle">
-                      <Col><Avatar size={90} src={user.photoUrl} icon={!user.photoUrl && <UserOutlined />} style={{ backgroundColor: '#1890ff' }} /></Col>
+                      <Col><Avatar size={90} src={user.photoUrl} icon={!user.photoUrl && <UserOutlined />} style={{ backgroundColor: '#c62828' }} /></Col>
                       <Col flex={1}>
                         <Title level={3} style={{ margin: 0 }}>{user.firstName} {user.middleName} {user.lastName}</Title>
                         <Text type="secondary" style={{ fontSize: '15px' }}>{user.schoolId}   {user.department || 'Faculty Member'}</Text><br />
@@ -428,7 +428,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                         <Text type="secondary"><strong>Mobile Number:</strong> {user.mobileNum}</Text><br/>
                         <Text type="secondary"><strong>Present Address:</strong> {user.presentAddress}</Text>
                       </Tabs.TabPane>
-                      <Tabs.TabPane tab="Assigned Subjects" key="courses"><List dataSource={myCourses} locale={{ emptyText: 'No assigned subjects found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Space><Tag color="blue">{course.code}</Tag><Text type="secondary" style={{ fontSize: '12px' }}>{course.targetProgram} ({course.targetYear})</Text></Space>} /></List.Item>)} /></Tabs.TabPane>
+                      <Tabs.TabPane tab="Assigned Subjects" key="courses"><List dataSource={myCourses} locale={{ emptyText: 'No assigned subjects found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Space><Tag color="red">{course.code}</Tag><Text type="secondary" style={{ fontSize: '12px' }}>{course.targetProgram} ({course.targetYear})</Text></Space>} /></List.Item>)} /></Tabs.TabPane>
                     </Tabs>
                   </Card>
                 </div>

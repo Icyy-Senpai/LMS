@@ -47,7 +47,7 @@ export default function AssignmentsPanel({ courseCode, onChanged }) {
   };
 
   const columns = [
-    ...(courseCode ? [] : [{ title: 'Course', dataIndex: 'courseCode', render: c => <Tag color="purple">{c}</Tag> }]),
+    ...(courseCode ? [] : [{ title: 'Course', dataIndex: 'courseCode', render: c => <Tag color="default">{c}</Tag> }]),
     { title: 'Title', dataIndex: 'title', render: (t, r) => <Space><Text strong>{t}</Text><Tag color={r.type === 'Quiz' ? 'purple' : 'geekblue'}>{r.type || 'Assignment'}</Tag></Space> },
     { title: 'Deadline', dataIndex: 'deadline', render: d => (d ? new Date(d).toLocaleString() : '-') },
     { title: 'Submissions', key: 'subs', render: (_, r) => <Space><Tag>{r.submissionCount} total</Tag>{r.ungradedCount > 0 && <Tag color="orange">{r.ungradedCount} ungraded</Tag>}</Space> },

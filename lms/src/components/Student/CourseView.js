@@ -235,22 +235,22 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
           <form onSubmit={handleStudentSubmission} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <label>Cloud Drive URL: <input type="url" value={submitFileUrl} onChange={e => setSubmitFileUrl(e.target.value)} /></label>
             <label>Upload File: <input type="file" onChange={handleFileUpload} /></label>
-            <button type="submit" style={{ padding: '8px', cursor: 'pointer', background: '#1890ff', color: '#fff', border: 'none' }}>Turn In</button>
+            <button type="submit" style={{ padding: '8px', cursor: 'pointer', background: '#c62828', color: '#fff', border: 'none' }}>Turn In</button>
             <button type="button" onClick={() => setIsSubmitModalVisible(false)} style={{ padding: '8px', cursor: 'pointer' }}>Cancel</button>
           </form>
         </div>
       )}
 
       {isQuizModalVisible && activeQuiz && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', overflowY: 'auto', background: '#f0f2f5', padding: '40px', zIndex: 9999 }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', overflowY: 'auto', background: '#f5f5f5', padding: '40px', zIndex: 9999 }}>
           <div style={{ maxWidth: '800px', margin: '0 auto', background: 'white', padding: '30px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ color: '#722ed1', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>{activeQuiz.title}</h2>
+            <h2 style={{ color: '#424242', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>{activeQuiz.title}</h2>
             <p style={{ color: 'red', fontWeight: 'bold' }}>WARNING: Do not exit full screen. If you exit or press Esc, your quiz will automatically submit with a score of 0.</p>
             <p><em>{activeQuiz.instructions}</em></p>
             
             {isSubmittingQuiz ? (
                 <div style={{ textAlign: 'center', padding: '50px 0' }}>
-                    <h3 style={{ color: '#1890ff' }}>Evaluating Answers with AI...</h3>
+                    <h3 style={{ color: '#c62828' }}>Evaluating Answers with AI...</h3>
                     <p>Please wait while your quiz is being graded.</p>
                 </div>
             ) : (
@@ -294,7 +294,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                 ))}
                 
                 <div style={{ marginTop: '20px' }}>
-                  <button type="submit" style={{ padding: '12px 24px', width: '100%', cursor: 'pointer', background: '#722ed1', color: '#fff', border: 'none', fontSize: '16px', fontWeight: 'bold', borderRadius: '4px' }}>Submit Quiz</button>
+                  <button type="submit" style={{ padding: '12px 24px', width: '100%', cursor: 'pointer', background: '#424242', color: '#fff', border: 'none', fontSize: '16px', fontWeight: 'bold', borderRadius: '4px' }}>Submit Quiz</button>
                 </div>
               </form>
             )}
@@ -303,14 +303,14 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
       )}
 
       <div style={{ width: '200px', borderRight: '1px solid #f0f0f0', padding: '10px', background: '#fafafa' }}>
-        <h4 style={{ color: '#1890ff', margin: '10px 0 20px 0', textAlign: 'center' }}>{course.code}</h4>
+        <h4 style={{ color: '#c62828', margin: '10px 0 20px 0', textAlign: 'center' }}>{course.code}</h4>
         <button onClick={onBack} style={{ width: '100%', marginBottom: '20px', padding: '8px', cursor: 'pointer', border: '1px solid #d9d9d9', borderRadius: '4px', background: '#fff' }}>&larr; Back to Dashboard</button>
         <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <li><button onClick={() => setActiveTab('announcements')} style={{ width: '100%', padding: '8px', background: activeTab === 'announcements' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Announcements</button></li>
-          <li><button onClick={() => setActiveTab('videos')} style={{ width: '100%', padding: '8px', background: activeTab === 'videos' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Video Lessons</button></li>
-          <li><button onClick={() => setActiveTab('materials')} style={{ width: '100%', padding: '8px', background: activeTab === 'materials' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Reading Materials</button></li>
-          <li><button onClick={() => setActiveTab('assignments')} style={{ width: '100%', padding: '8px', background: activeTab === 'assignments' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Assignments & Quizzes</button></li>
-          <li><button onClick={() => setActiveTab('shared_files')} style={{ width: '100%', padding: '8px', background: activeTab === 'shared_files' ? '#e6f7ff' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer', fontWeight: 'bold' }}>Shared Files</button></li>
+          <li><button onClick={() => setActiveTab('announcements')} style={{ width: '100%', padding: '8px', background: activeTab === 'announcements' ? '#fdecea' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Announcements</button></li>
+          <li><button onClick={() => setActiveTab('videos')} style={{ width: '100%', padding: '8px', background: activeTab === 'videos' ? '#fdecea' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Video Lessons</button></li>
+          <li><button onClick={() => setActiveTab('materials')} style={{ width: '100%', padding: '8px', background: activeTab === 'materials' ? '#fdecea' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Reading Materials</button></li>
+          <li><button onClick={() => setActiveTab('assignments')} style={{ width: '100%', padding: '8px', background: activeTab === 'assignments' ? '#fdecea' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer' }}>Assignments & Quizzes</button></li>
+          <li><button onClick={() => setActiveTab('shared_files')} style={{ width: '100%', padding: '8px', background: activeTab === 'shared_files' ? '#fdecea' : '#fff', border: '1px solid #d9d9d9', cursor: 'pointer', fontWeight: 'bold' }}>Shared Files</button></li>
         </ul>
       </div>
       
@@ -326,7 +326,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
             {courseContent?.announcements?.length > 0 ? (
               <ul style={{ padding: 0, listStyle: 'none' }}>{courseContent.announcements.map((item, idx) => (
                 <li key={idx} style={{ background: '#fafafa', border: '1px solid #e8e8e8', padding: '15px', marginBottom: '10px', borderRadius: '4px' }}>
-                  <strong style={{ fontSize: '16px', color: '#1890ff' }}>{item.title}</strong> <br/>
+                  <strong style={{ fontSize: '16px', color: '#c62828' }}>{item.title}</strong> <br/>
                   <span style={{ color: 'gray', fontSize: '12px' }}>Posted: {new Date(item.date).toLocaleDateString()}</span>
                   <p style={{ marginTop: '10px' }}>{item.content}</p>
                 </li>
@@ -338,7 +338,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
         {activeTab === 'videos' && (
           <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #d9d9d9' }}>
             <h3 style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>Video Lessons</h3>
-            {courseContent?.videos?.length > 0 ? <ul style={{ paddingLeft: '20px', lineHeight: '2' }}>{courseContent.videos.map((item, idx) => (<li key={idx} style={{ marginBottom: '8px' }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#1890ff', textDecoration: 'none', fontWeight: 'bold' }}>{item.title}</a></li>))}</ul> : <p>No videos.</p>}
+            {courseContent?.videos?.length > 0 ? <ul style={{ paddingLeft: '20px', lineHeight: '2' }}>{courseContent.videos.map((item, idx) => (<li key={idx} style={{ marginBottom: '8px' }}><a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#c62828', textDecoration: 'none', fontWeight: 'bold' }}>{item.title}</a></li>))}</ul> : <p>No videos.</p>}
           </div>
         )}
         
@@ -354,7 +354,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                           download={item.fileData ? item.fileName : undefined} 
                           target={item.fileData ? "_self" : "_blank"} 
                           rel="noreferrer" 
-                          style={{ color: '#1890ff', textDecoration: 'none', fontWeight: 'bold' }}
+                          style={{ color: '#c62828', textDecoration: 'none', fontWeight: 'bold' }}
                       >
                           {item.title} {item.fileName ? `(${item.fileName})` : ''}
                       </a>
@@ -376,14 +376,14 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                         <li key={idx} style={{ border: '1px solid #e8e8e8', padding: '15px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa' }}>
                             <div>
                                 <strong style={{ fontSize: '15px' }}>{file.title}</strong>
-                                <div style={{ color: '#1890ff', fontSize: '12px', marginTop: '4px', fontWeight: 'bold' }}>Source: {file.source}</div>
+                                <div style={{ color: '#c62828', fontSize: '12px', marginTop: '4px', fontWeight: 'bold' }}>Source: {file.source}</div>
                             </div>
                             <a 
                                 href={file.url} 
                                 download={file.isBase64 ? file.title : undefined}
                                 target={file.isBase64 ? "_self" : "_blank"} 
                                 rel="noreferrer"
-                                style={{ background: '#1890ff', color: '#fff', padding: '8px 16px', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold' }}
+                                style={{ background: '#c62828', color: '#fff', padding: '8px 16px', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold' }}
                             >
                                 {file.isBase64 ? 'Download File' : 'Open Link'}
                             </a>
@@ -409,7 +409,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                 return (
                   <div key={item._id} id={`task-${item._id}`} style={{ border: highlightId === item._id ? '2px solid #faad14' : '1px solid #e8e8e8', boxShadow: highlightId === item._id ? '0 0 0 4px rgba(250,173,20,0.25)' : 'none', padding: '20px', marginBottom: '20px', borderRadius: '8px', background: highlightId === item._id ? '#fffbe6' : '#fafafa', transition: 'all 0.4s' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0', paddingBottom: '10px', marginBottom: '15px' }}>
-                        <h4 style={{ margin: 0, color: isQuiz ? '#722ed1' : '#000', fontSize: '18px' }}>
+                        <h4 style={{ margin: 0, color: isQuiz ? '#424242' : '#000', fontSize: '18px' }}>
                           {item.title} <span style={{ color: 'gray', fontSize: '14px', fontWeight: 'normal' }}> (Max Score: {item.maxGrade})</span>
                         </h4>
                         <span style={{ color: isPastDeadline && !mySubmission ? 'red' : 'gray', fontSize: '13px', fontWeight: 'bold' }}>
@@ -425,7 +425,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                         <ul style={{ margin: '5px 0 0 0', paddingLeft: '20px' }}>
                             {item.attachedFiles.map((f, i) => (
                                 <li key={i}>
-                                    <a href={f.fileData || f.fileUrl} download={f.fileData ? f.fileName : undefined} target={f.fileData ? "_self" : "_blank"} rel="noreferrer" style={{ color: '#1890ff' }}>
+                                    <a href={f.fileData || f.fileUrl} download={f.fileData ? f.fileName : undefined} target={f.fileData ? "_self" : "_blank"} rel="noreferrer" style={{ color: '#c62828' }}>
                                         {f.fileName || f.title}
                                     </a>
                                 </li>
@@ -440,18 +440,18 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                       {mySubmission ? (
                         <div>
                           {mySubmission.cheatingFlag ? (
-                             <p style={{ color: '#cf1322', background: '#fff1f0', padding: '8px', border: '1px solid #ffa39e', borderRadius: '4px', fontWeight: 'bold', margin: '0 0 10px 0' }}>Flagged: Cheating (Exited Full Screen)</p>
+                             <p style={{ color: '#b71c1c', background: '#fff1f0', padding: '8px', border: '1px solid #ffa39e', borderRadius: '4px', fontWeight: 'bold', margin: '0 0 10px 0' }}>Flagged: Cheating (Exited Full Screen)</p>
                           ) : (
                              <p style={{ margin: '0 0 8px 0' }}><strong>Status:</strong> {new Date(mySubmission.submittedAt) > new Date(item.deadline) ? <span style={{color:'orange', fontWeight: 'bold'}}>Turned in Late</span> : <span style={{color:'green', fontWeight: 'bold'}}>Turned In Successfully</span>}</p>
                           )}
-                          <p style={{ margin: '0 0 8px 0', fontSize: '16px' }}><strong>Grade:</strong> <span style={{ fontWeight: 'bold', color: '#1890ff' }}>{mySubmission.grade !== null && mySubmission.grade !== undefined ? `${mySubmission.grade} / ${item.maxGrade}` : 'Pending Evaluation'}</span></p>
+                          <p style={{ margin: '0 0 8px 0', fontSize: '16px' }}><strong>Grade:</strong> <span style={{ fontWeight: 'bold', color: '#c62828' }}>{mySubmission.grade !== null && mySubmission.grade !== undefined ? `${mySubmission.grade} / ${item.maxGrade}` : 'Pending Evaluation'}</span></p>
                           
-                          {mySubmission.feedback && <div style={{ margin: '10px 0', background: '#e6f7ff', padding: '12px', borderLeft: '4px solid #1890ff', borderRadius: '4px' }}><strong>Teacher Feedback:</strong> <br/>{mySubmission.feedback}</div>}
+                          {mySubmission.feedback && <div style={{ margin: '10px 0', background: '#fdecea', padding: '12px', borderLeft: '4px solid #c62828', borderRadius: '4px' }}><strong>Teacher Feedback:</strong> <br/>{mySubmission.feedback}</div>}
                           
                           {!isQuiz && (
                             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                              {mySubmission.fileUrl && <a href={mySubmission.fileUrl} target="_blank" rel="noreferrer" style={{ background: '#f0f5ff', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', border: '1px solid #adc6ff' }}>View Cloud Link</a>}
-                              {mySubmission.fileName && <a href={mySubmission.fileData} download={mySubmission.fileName} style={{ background: '#f0f5ff', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', border: '1px solid #adc6ff' }}>Download File: {mySubmission.fileName}</a>}
+                              {mySubmission.fileUrl && <a href={mySubmission.fileUrl} target="_blank" rel="noreferrer" style={{ background: '#fff5f5', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', border: '1px solid #f5c2c0' }}>View Cloud Link</a>}
+                              {mySubmission.fileName && <a href={mySubmission.fileData} download={mySubmission.fileName} style={{ background: '#fff5f5', padding: '6px 12px', borderRadius: '4px', textDecoration: 'none', border: '1px solid #f5c2c0' }}>Download File: {mySubmission.fileName}</a>}
                             </div>
                           )}
                         </div>
@@ -460,7 +460,7 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
                       {!readOnly && !isStrictlyClosed && !mySubmission && (
                         <button 
                           onClick={() => isQuiz ? startQuizFullscreen(item) : openSubmitModal(item._id)} 
-                          style={{ marginTop: '15px', padding: '10px 20px', cursor: 'pointer', background: isQuiz ? '#722ed1' : '#1890ff', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '15px' }}
+                          style={{ marginTop: '15px', padding: '10px 20px', cursor: 'pointer', background: isQuiz ? '#424242' : '#c62828', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', fontSize: '15px' }}
                         >
                           {isQuiz ? "Take Quiz" : "Submit Work"}
                         </button>

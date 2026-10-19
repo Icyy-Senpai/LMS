@@ -13,7 +13,7 @@ export default function CourseFormModal({ open, course, teachers = [], programs 
     if (!open) return;
     form.resetFields();
     if (course) form.setFieldsValue({ ...course, instructorID: course.instructorID || undefined });
-    else form.setFieldsValue({ color: '#1890ff' });
+    else form.setFieldsValue({ color: '#c62828' });
   }, [open, course, form]);
 
   const handleFinish = async (values) => {

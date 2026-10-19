@@ -1,8 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --red: #c62828;
+  --red-dark: #b71c1c;
+  --red-light: #fdecea;
+  --red-border: #f5c2c0;
+  --charcoal: #212121;
+  --gray-dark: #424242;
+  --gray: #757575;
+  --gray-border: #e0e0e0;
+  --gray-bg: #f5f5f5;
+  --white: #ffffff;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
+    'Helvetica Neue', sans-serif;
+  background: var(--gray-bg);
+  color: var(--charcoal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -10,4 +32,126 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+a {
+  color: var(--red);
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: var(--red-dark);
+}
+
+::selection {
+  background: var(--red);
+  color: var(--white);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #c4c4c4;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9e9e9e;
+}
+
+/* ---------- Plain HTML controls used across the app ---------- */
+button:not(.ant-btn) {
+  font-family: inherit;
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+
+button:not(.ant-btn):not(:disabled):hover {
+  filter: brightness(0.95);
+}
+
+button:not(.ant-btn):not(:disabled):active {
+  transform: translateY(1px);
+}
+
+input:not([type='color']):not([type='checkbox']):not([type='radio']):not([class*='ant-']),
+textarea:not([class*='ant-']),
+select:not([class*='ant-']) {
+  font-family: inherit;
+  border: 1px solid #d6d6d6;
+  border-radius: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:not([class*='ant-']):focus,
+textarea:not([class*='ant-']):focus,
+select:not([class*='ant-']):focus {
+  outline: none;
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.15);
+}
+
+/* ---------- Ant Design polish ---------- */
+.ant-layout-header {
+  border-bottom: 1px solid var(--gray-border);
+  box-shadow: none !important;
+}
+
+.ant-layout-sider-light {
+  border-right: 1px solid var(--gray-border) !important;
+}
+
+/* Thin red accent at the top of every page header */
+.ant-layout > .ant-layout-header {
+  position: relative;
+}
+.ant-layout > .ant-layout-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--red);
+}
+
+.ant-card {
+  border-color: var(--gray-border);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.25s, transform 0.25s;
+}
+
+.ant-card-hoverable:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.ant-card-head-title {
+  font-weight: 600;
+}
+
+.ant-statistic-title {
+  color: var(--gray);
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.ant-table-thead > tr > th {
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+}
+
+.ant-modal-content {
+  border-top: 4px solid var(--red);
+}
+
+.ant-menu-light .ant-menu-item-selected {
+  font-weight: 600;
 }

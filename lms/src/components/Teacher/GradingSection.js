@@ -115,10 +115,10 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
               <Card size="small" hoverable onClick={() => setSelectedAssignment(ass)}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <Text strong style={{ color: ass.type === 'Quiz' ? '#722ed1' : 'inherit' }}>{ass.title}</Text><br />
+                    <Text strong style={{ color: ass.type === 'Quiz' ? '#424242' : 'inherit' }}>{ass.title}</Text><br />
                     <Text type="secondary" style={{ fontSize: '12px' }}>Due: {new Date(ass.deadline).toLocaleString()}</Text>
                   </div>
-                  <Tag color="blue">{ass.submissions?.length || 0} Submissions</Tag>
+                  <Tag color="red">{ass.submissions?.length || 0} Submissions</Tag>
                 </div>
               </Card>
             </List.Item>
@@ -152,7 +152,7 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
         {gradingSubmission?.submission && (
           <div style={{ marginBottom: '24px', padding: '16px', background: '#fafafa', borderRadius: '6px' }}>
             {gradingSubmission.submission.cheatingFlag && (
-                <div style={{ background: '#fff1f0', padding: '10px', border: '1px solid #ffa39e', color: '#cf1322', marginBottom: '15px', borderRadius: '4px' }}>
+                <div style={{ background: '#fff1f0', padding: '10px', border: '1px solid #ffa39e', color: '#b71c1c', marginBottom: '15px', borderRadius: '4px' }}>
                     <WarningOutlined style={{ marginRight: '8px' }} /> 
                     <strong>Cheating Flag:</strong> Student exited full-screen mode during the quiz. Auto-graded to 0.
                 </div>
@@ -283,8 +283,8 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
 
                               {/* AI Feedback Box */}
                               {ans.aiFeedback && (
-                                  <div style={{ marginTop: '15px', padding: '10px', background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: '4px', fontSize: '13px' }}>
-                                      <RobotOutlined style={{ marginRight: '8px', color: '#1890ff' }} />
+                                  <div style={{ marginTop: '15px', padding: '10px', background: '#fdecea', border: '1px solid #f5c2c0', borderRadius: '4px', fontSize: '13px' }}>
+                                      <RobotOutlined style={{ marginRight: '8px', color: '#c62828' }} />
                                       <strong>AI Evaluation:</strong> {ans.aiFeedback}
                                   </div>
                               )}

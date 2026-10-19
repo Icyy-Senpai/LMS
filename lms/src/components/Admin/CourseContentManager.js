@@ -63,7 +63,7 @@ export default function CourseContentManager({ courseCode, kind }) {
             </Popconfirm>
           ]}>
             <List.Item.Meta
-              title={<Space><Text strong>{item.title}</Text>{item.hasFile && <Tag color="geekblue">Uploaded file: {item.fileName}</Tag>}</Space>}
+              title={<Space><Text strong>{item.title}</Text>{item.hasFile && <Tag color="volcano">Uploaded file: {item.fileName}</Tag>}</Space>}
               description={kind === 'announcements' ? <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0 }}>{item.content}</Paragraph> : (item.url || item.fileUrl || '')}
             />
           </List.Item>

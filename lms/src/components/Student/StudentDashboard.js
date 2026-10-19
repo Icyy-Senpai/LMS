@@ -224,7 +224,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     const dayTodos = upcomingTasks.filter(todo => todo.calendarFilter === cellDateStr);
     return (
       <div style={{ textAlign: 'center', fontSize: '11px', padding: '2px 0' }}>
-        <div style={{ display: 'inline-block', width: '22px', height: '22px', lineHeight: '22px', borderRadius: '50%', backgroundColor: isSelected ? '#1890ff' : 'transparent', color: isSelected ? '#fff' : 'inherit', border: isToday && !isSelected ? '1px solid #1890ff' : '1px solid transparent', fontWeight: isSelected || isToday ? 'bold' : 'normal', transition: 'all 0.2s' }}>
+        <div style={{ display: 'inline-block', width: '22px', height: '22px', lineHeight: '22px', borderRadius: '50%', backgroundColor: isSelected ? '#c62828' : 'transparent', color: isSelected ? '#fff' : 'inherit', border: isToday && !isSelected ? '1px solid #c62828' : '1px solid transparent', fontWeight: isSelected || isToday ? 'bold' : 'normal', transition: 'all 0.2s' }}>
           {value.date()}
         </div>
         {dayTodos.length > 0 && <div style={{ marginTop: -4 }}><Badge dot color={isSelected ? 'white' : 'red'} /></div>}
@@ -279,7 +279,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
   const catalogPopoverContent = (
     <div style={{ width: 280 }}>
       <Tabs defaultActiveKey="enrolled">
-        <Tabs.TabPane tab={<Badge count={currentlyEnrolled.length} offset={[10, 0]} color="blue">Enrolled</Badge>} key="enrolled">
+        <Tabs.TabPane tab={<Badge count={currentlyEnrolled.length} offset={[10, 0]} color="red">Enrolled</Badge>} key="enrolled">
           {currentlyEnrolled.length > 0 ? (
             <List size="small" dataSource={currentlyEnrolled} renderItem={c => (
               <List.Item style={{ cursor: 'pointer' }} onClick={() => { setSelectedCourse(c); }}>
@@ -356,7 +356,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
           <>
             <Paragraph>Do you want to be redirected to <Text strong>{taskToOpen.title}</Text>?</Paragraph>
             <Space wrap>
-              <Tag color="geekblue">{taskToOpen.courseCode}</Tag>
+              <Tag color="volcano">{taskToOpen.courseCode}</Tag>
               <Tag color={taskToOpen.type === 'Quiz' ? 'purple' : 'blue'}>{taskToOpen.type}</Tag>
               <Text type="secondary">Due: {taskToOpen.dateStr}</Text>
             </Space>
@@ -368,7 +368,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
         <List grid={{ gutter: 16, xs: 1, sm: 2 }} dataSource={programAvailableCourses} locale={{ emptyText: `No available courses found for ${user.department}.` }} renderItem={course => (
           <List.Item>
             <Card size="small" hoverable>
-              <div style={{ height: 40, backgroundColor: course.color || '#1890ff', margin: '-12px -12px 12px -12px', borderRadius: '8px 8px 0 0' }} />
+              <div style={{ height: 40, backgroundColor: course.color || '#c62828', margin: '-12px -12px 12px -12px', borderRadius: '8px 8px 0 0' }} />
               <Text strong>{course.code}</Text>
               <Title level={5} style={{ margin: '4px 0', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</Title>
               <Text type="secondary" style={{ fontSize: '12px' }}>Prof. {course.instructor || 'TBA'}</Text>
@@ -385,7 +385,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} />
-                <Title level={4} style={{ margin: '0 0 0 5px', color: '#1890ff' }}>eLMS</Title>
+                <Title level={4} style={{ margin: '0 0 0 5px', color: '#c62828' }}>eLMS</Title>
               </div>
             )}
           </div>
@@ -399,11 +399,11 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
           </div>
           <div style={{ padding: collapsed ? '16px 8px' : '16px', borderTop: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}>
             {collapsed ? (
-              <Avatar src={user.photoUrl} style={{ backgroundColor: '#1890ff' }} icon={!user.photoUrl && <UserOutlined />} />
+              <Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} />
             ) : (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                  <Avatar src={user.photoUrl} style={{ backgroundColor: '#1890ff' }} icon={!user.photoUrl && <UserOutlined />} />
+                  <Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} />
                   <div style={{ overflow: 'hidden' }}>
                     <div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{user.firstName} {user.lastName}</div>
                     <div style={{ fontSize: '12px', color: '#faad14', fontWeight: 'bold' }}>{user.points || 0} EXP</div>
@@ -420,7 +420,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
       </Sider>
 
       <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,21,41,.08)', zIndex: 1 }}>
+        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,.06)', zIndex: 1 }}>
           <Title level={4} style={{ margin: 0, textTransform: 'none' }}>{selectedCourse ? selectedCourse.code : activeTab.replace('-', ' ')}</Title>
           <Space size="middle" align="center">
             
@@ -436,7 +436,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                       itemLayout="horizontal"
                       dataSource={mailboxItems}
                       renderItem={item => (
-                        <List.Item style={{ padding: '10px', background: item.isUrgent ? '#fff1f0' : '#f0f5ff', borderBottom: '1px solid #f0f0f0' }}>
+                        <List.Item style={{ padding: '10px', background: item.isUrgent ? '#fff1f0' : '#fff5f5', borderBottom: '1px solid #f0f0f0' }}>
                           <List.Item.Meta 
                             avatar={<Tag color={item.isUrgent ? 'red' : 'blue'} style={{ marginTop: '5px' }}>{item.courseCode}</Tag>}
                             title={<span style={{ fontSize: '13px', fontWeight: 'bold', color: item.isUrgent ? 'red' : 'inherit' }}>{item.title}</span>} 
@@ -454,7 +454,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
             >
               <Badge count={mailboxItems.filter(i => i.isUrgent).length} color="red" style={{ cursor: 'pointer' }}>
                 <Button type="text" style={{ display: 'flex', alignItems: 'center', padding: '0 8px' }}>
-                  <MailOutlined style={{ fontSize: 22, color: '#1890ff' }} />
+                  <MailOutlined style={{ fontSize: 22, color: '#c62828' }} />
                 </Button>
               </Badge>
             </Popover>
@@ -471,7 +471,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                       itemLayout="horizontal"
                       dataSource={notifications}
                       renderItem={item => (
-                        <List.Item style={{ padding: '10px', background: item.isRead ? 'transparent' : '#f0f5ff', borderBottom: '1px solid #f0f0f0' }}>
+                        <List.Item style={{ padding: '10px', background: item.isRead ? 'transparent' : '#fff5f5', borderBottom: '1px solid #f0f0f0' }}>
                           <List.Item.Meta 
                             title={<span style={{ fontSize: '13px', fontWeight: item.isRead ? 'normal' : 'bold' }}>{item.title}</span>} 
                             description={<span style={{ fontSize: '12px', color: '#595959' }}>{item.message}</span>} 
@@ -507,7 +507,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                         {currentlyEnrolled.map(course => (
                           <Col xs={24} sm={12} md={12} xl={8} key={course.id}>
                             <Card hoverable bodyStyle={{ padding: 0 }} onClick={() => setSelectedCourse(course)}>
-                              <div style={{ height: 60, backgroundColor: course.color || '#1890ff' }} />
+                              <div style={{ height: 60, backgroundColor: course.color || '#c62828' }} />
                               <div style={{ padding: 16 }}>
                                 <Text type="secondary" strong>{course.code}</Text>
                                 <Title level={5} style={{ margin: '4px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{course.name}</Title>
@@ -540,7 +540,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                           <List size="small" dataSource={overdueCoursesList} locale={{ emptyText: 'No overdue tasks.' }} renderItem={courseGroup => (
                             <List.Item style={{ padding: '6px 4px', cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }} onClick={() => handleCourseClick(courseGroup.code, courseGroup.name)}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                                <Space size={4}><Tag color="red" style={{ margin: '0 0 9px' }}>{courseGroup.code}</Tag><Text style={{ fontSize: '12px', fontWeight: 600, color: '#1890ff' }}>{courseGroup.name}</Text></Space>
+                                <Space size={4}><Tag color="red" style={{ margin: '0 0 9px' }}>{courseGroup.code}</Tag><Text style={{ fontSize: '12px', fontWeight: 600, color: '#c62828' }}>{courseGroup.name}</Text></Space>
                                 <Badge count={courseGroup.tasks.length} style={{ backgroundColor: '#ff4d4f' }} />
                               </div>
                             </List.Item>
@@ -576,12 +576,12 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                 <div style={{ maxWidth: 900, margin: '0 auto' }}>
                   <Card style={{ marginBottom: 20 }}>
                     <Row gutter={24} align="middle">
-                      <Col><Avatar size={90} src={user.photoUrl} icon={!user.photoUrl && <UserOutlined />} style={{ backgroundColor: '#1890ff' }} /></Col>
+                      <Col><Avatar size={90} src={user.photoUrl} icon={!user.photoUrl && <UserOutlined />} style={{ backgroundColor: '#c62828' }} /></Col>
                       <Col flex={1}>
                         <Title level={3} style={{ margin: 0 }}>{user.firstName} {user.middleName} {user.lastName}</Title>
                         <Text type="secondary" style={{ fontSize: '15px' }}>{user.schoolId}   {user.department}</Text><br />
                         <Text>{user.schoolEmail}</Text>
-                        <div style={{ marginTop: 8 }}><Tag color="blue">{userYearLevel}</Tag><Tag color="gold">{user.points || 0} EXP</Tag></div>
+                        <div style={{ marginTop: 8 }}><Tag color="red">{userYearLevel}</Tag><Tag color="gold">{user.points || 0} EXP</Tag></div>
                       </Col>
                     </Row>
                   </Card>
@@ -601,7 +601,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                       </>
                       ) },
                       { key: 'courses', label: 'Courses', children: (
-                        <List dataSource={currentlyEnrolled} locale={{ emptyText: 'No enrolled courses found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Tag color="blue">{course.code}</Tag>} /></List.Item>)} />
+                        <List dataSource={currentlyEnrolled} locale={{ emptyText: 'No enrolled courses found.' }} renderItem={course => (<List.Item><List.Item.Meta title={course.name} description={<Tag color="red">{course.code}</Tag>} /></List.Item>)} />
                       ) },
                       { key: 'completed', label: <span><TrophyOutlined /> Completed Courses ({completedCourses.length})</span>, children: (
                         <List dataSource={completedCourses} locale={{ emptyText: 'No completed courses yet.' }} renderItem={course => (
@@ -610,7 +610,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
                               title={course.name}
                               description={
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                  <span><Tag color="blue">{course.code}</Tag>{course.instructor && course.instructor !== 'TBA' ? <Text type="secondary" style={{ fontSize: 12 }}>{course.instructor}</Text> : null}</span>
+                                  <span><Tag color="red">{course.code}</Tag>{course.instructor && course.instructor !== 'TBA' ? <Text type="secondary" style={{ fontSize: 12 }}>{course.instructor}</Text> : null}</span>
                                   <Text type="secondary" style={{ fontSize: 12 }}>
                                     Completed on {course.completedAt ? dayjs(course.completedAt).format('MMM D, YYYY') : '-'}{course.completedBy ? ` · marked by ${course.completedBy}` : ''}
                                   </Text>

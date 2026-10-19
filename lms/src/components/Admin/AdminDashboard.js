@@ -159,16 +159,16 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
   ];
 
   const statCards = [
-    { title: 'Total Users', value: stats.users, icon: <TeamOutlined style={{ color: '#1890ff' }} />, hint: `${stats.students || 0} students · ${stats.teachers || 0} faculty · ${stats.admins || 0} admins` },
+    { title: 'Total Users', value: stats.users, icon: <TeamOutlined style={{ color: '#c62828' }} />, hint: `${stats.students || 0} students · ${stats.teachers || 0} faculty · ${stats.admins || 0} admins` },
     { title: 'Courses', value: stats.courses, icon: <BookOutlined style={{ color: '#52c41a' }} /> },
-    { title: 'Forum Threads', value: stats.forums, icon: <SafetyOutlined style={{ color: '#722ed1' }} /> },
+    { title: 'Forum Threads', value: stats.forums, icon: <SafetyOutlined style={{ color: '#424242' }} /> },
     { title: 'Assignments & Quizzes', value: stats.assignments, icon: <DashboardOutlined style={{ color: '#faad14' }} />, hint: `${stats.ungraded || 0} submissions awaiting grade` }
   ];
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider theme="dark" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null}>
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#cf1322' }}>
+        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#b71c1c' }}>
           <Title level={4} style={{ margin: 0, color: '#fff' }}>{collapsed ? 'ADM' : 'Admin Override'}</Title>
         </div>
         <Menu theme="dark" mode="inline" selectedKeys={[activeTab]} onClick={(e) => setActiveTab(e.key)} items={[
@@ -182,7 +182,7 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
         <div style={{ position: 'absolute', bottom: 16, width: '100%', padding: collapsed ? '0 8px' : '0 16px' }}>
           {!collapsed && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, color: '#fff' }}>
-              <Avatar src={user.photoUrl} icon={!user.photoUrl && <UserOutlined />} style={{ backgroundColor: '#cf1322' }} />
+              <Avatar src={user.photoUrl} icon={!user.photoUrl && <UserOutlined />} style={{ backgroundColor: '#b71c1c' }} />
               <div style={{ overflow: 'hidden' }}><div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{fullName(user) || user.username}</div><div style={{ fontSize: 12, opacity: 0.7 }}>Administrator</div></div>
             </div>
           )}
@@ -192,7 +192,7 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
       </Sider>
 
       <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,21,41,.08)' }}>
+        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,.06)' }}>
           <Title level={4} style={{ margin: 0 }}>System Administration</Title>
           <Button icon={<NotificationOutlined />} onClick={() => setBroadcastOpen(true)}>Send Announcement</Button>
         </Header>

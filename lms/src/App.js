@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Modal, Button } from 'antd';
+import { Modal, Button, ConfigProvider, App as AntApp } from 'antd';
+import theme from './theme';
+import './App.css';
 import Login from './components/Login';
 import StudentDashboard from './components/Student/StudentDashboard';
 import TeacherDashboard from './components/Teacher/TeacherDashboard';
@@ -49,7 +51,8 @@ export default function App() {
   }, [user, showIdlePrompt]);
 
   return (
-    <>
+    <ConfigProvider theme={theme}>
+    <AntApp>
       <Modal
         title="Session Expiring"
         open={showIdlePrompt}
@@ -71,7 +74,7 @@ export default function App() {
       ) : user.accountType === 'Admin' ? (
         <AdminDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#f0f2f5' }}>
+        <div className="role-error">
           <h2>Error: Invalid Role</h2>
           <p>Your account type could not be determined from the database.</p>
           <Button type="primary" danger onClick={handleLogout} size="large" style={{ marginTop: 16 }}>
@@ -79,6 +82,7 @@ export default function App() {
           </Button>
         </div>
       )}
-    </>
+    </AntApp>
+    </ConfigProvider>
   );
 }

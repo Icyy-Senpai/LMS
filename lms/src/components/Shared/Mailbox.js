@@ -6,12 +6,12 @@ import api from '../../api';
 const { Text } = Typography;
 
 const ICONS = {
-  message: <MessageOutlined style={{ fontSize: 20, color: '#1890ff' }} />,
+  message: <MessageOutlined style={{ fontSize: 20, color: '#c62828' }} />,
   completion: <TrophyOutlined style={{ fontSize: 20, color: '#faad14' }} />,
-  admin: <NotificationOutlined style={{ fontSize: 20, color: '#722ed1' }} />,
+  admin: <NotificationOutlined style={{ fontSize: 20, color: '#424242' }} />,
   alert: <BellOutlined style={{ fontSize: 20, color: '#fa8c16' }} />,
   deadline: <WarningOutlined style={{ fontSize: 20, color: '#ff4d4f' }} />,
-  course: <ReadOutlined style={{ fontSize: 20, color: '#13c2c2' }} />
+  course: <ReadOutlined style={{ fontSize: 20, color: '#757575' }} />
 };
 
 /**
@@ -84,8 +84,8 @@ export default function Mailbox({ user, notifications = [], onNotificationsChang
               onClick={() => handleClick(item)}
               style={{
                 cursor: clickable ? 'pointer' : 'default', padding: '12px 14px', marginBottom: 6, borderRadius: 6,
-                background: item.urgent ? '#fff1f0' : item.unread ? '#f0f5ff' : 'transparent',
-                border: `1px solid ${item.urgent ? '#ffa39e' : item.unread ? '#d6e4ff' : '#f0f0f0'}`
+                background: item.urgent ? '#fff1f0' : item.unread ? '#fff5f5' : 'transparent',
+                border: `1px solid ${item.urgent ? '#ffa39e' : item.unread ? '#f5c2c0' : '#f0f0f0'}`
               }}
               extra={<Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{item.date.toLocaleString()}</Text>}>
               <List.Item.Meta

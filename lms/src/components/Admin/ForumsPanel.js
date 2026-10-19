@@ -72,7 +72,7 @@ export default function ForumsPanel({ courses, onChanged }) {
   };
 
   const columns = [
-    { title: 'Course', dataIndex: 'courseCode', render: c => <Tag color="purple">{c}</Tag> },
+    { title: 'Course', dataIndex: 'courseCode', render: c => <Tag color="default">{c}</Tag> },
     { title: 'Thread Title', dataIndex: 'title' },
     { title: 'Author', dataIndex: 'author' },
     { title: 'Metrics', key: 'm', render: (_, r) => <Space><Tag>{r.upvotes} Upvotes</Tag><Tag>{r.replies?.length || 0} Replies</Tag>{r.flags > 0 && <Tag color="red">{r.flags} Flags</Tag>}</Space> },
