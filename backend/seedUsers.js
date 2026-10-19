@@ -12,7 +12,7 @@ const seedDatabase = async () => {
   try {
     // 1. Clean up existing test accounts to prevent duplicate key errors
     await Student.deleteMany({ schoolEmail: 'erinsp@students.nu-moa.edu.ph' });
-    await Teacher.deleteMany({ schoolEmail: 'teacher@school.edu.ph' });
+    await Teacher.deleteMany({ schoolEmail: { $in: ['teacher@school.edu.ph', 'dean@school.edu.ph'] } });
     await Admin.deleteMany({ username: 'admin' });
 
     // 2. Create Fresh Admin Account
@@ -102,10 +102,29 @@ const seedDatabase = async () => {
       schoolEmail: 'teacher@school.edu.ph',
       department: 'Information Technology',
       password: 'teacherPassword123',
-      accountType: 'Teacher'
+      accountType: 'Teacher',
+      isDean: false
     });
     await teacher.save();
     console.log('✅ Teacher Account Seeded: teacher@school.edu.ph / teacherPassword123');
+
+    // 5. Create Fresh Dean Account (a Teacher account with isDean: true -> logs in to the Dean's dashboard)
+    const dean = new Teacher({
+      lastName: 'Reyes', firstName: 'Maria', middleName: 'Lopez', middleInitial: 'L', suffix: '',
+      bithDate: '1980-05-05', countryOfBirth: 'Philippines', birthPlace: 'Manila', civilStatus: 'Married',
+      gender: 'Female', religion: 'Catholic', mobileNum: 9111111111, teleNum: 1111111,
+      personalEmail: 'dean@school.edu.ph',
+      presentAddress: 'Manila', presentProvince: 'Metro Manila', presentcmun: 'Manila', presentHouseNum: '789', presentBrgy: 3, presentPostal: 1000,
+      permanentAddress: 'Manila', permanentProvince: 'Metro Manila', permanentCmun: 'Manila', permanentHouseNum: '789', permanentBrgy: '3', permanentPostal: '1000',
+      schoolId: 'FACULTY-002',
+      schoolEmail: 'dean@school.edu.ph',
+      department: 'Information Technology',
+      password: 'deanPassword123',
+      accountType: 'Teacher',
+      isDean: true
+    });
+    await dean.save();
+    console.log('✅ Dean Account Seeded: dean@school.edu.ph / deanPassword123');
 
     console.log('Database seeding completed successfully!');
   } catch (error) {

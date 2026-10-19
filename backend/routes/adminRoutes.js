@@ -23,9 +23,8 @@ router.post('/admin/courses', c.createCourse);
 router.put('/admin/courses', c.updateCourse);
 router.delete('/admin/courses/:code', c.deleteCourse);
 router.get('/admin/courses/:code/roster', c.getCourseRoster);
-router.post('/admin/assign-course', c.assignUserCourse);
-router.post('/admin/remove-course', c.removeUserCourse);
-router.post('/admin/complete-course', c.completeStudentCourse);
+// Enrolling / reassigning users with courses and marking courses completed are NOT admin features:
+// reassigning is Dean-only and completing is Dean/Teacher-only (see routes/staffRoutes.js, routes/courseRoutes.js).
 
 // Departments
 router.get('/admin/departments', c.getDepartments);

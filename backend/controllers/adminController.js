@@ -9,7 +9,6 @@ const Submission = require('../models/Submission');
 const Notification = require('../models/Notification');
 const Department = require('../models/Department');
 const { getNextSchoolId } = require('../utils/schoolId');
-const { markCourseComplete } = require('../utils/courseCompletion');
 
 const fail = (res, err, fallback, code = 500) => {
   if (err && err.code === 11000) {
@@ -75,6 +74,13 @@ const COMMON_FIELDS = [
   'schoolEmail', 'department', 'bio'
 ];
 const STUDENT_ONLY = ['yearLevel', 'block'];
+// Teacher-only: isDean decides whether the account logs in to the Teacher or the Dean's dashboard.
+// (A teacher's block is changed by a Dean, not here.)
+const TEACHER_ONLY = ['isDean'];
+const allowedFor = (accountType) => accountType === 'Student' ? [...COMMON_FIELDS, ...STUDENT_ONLY] : [...COMMON_FIELDS, ...TEACHER_ONLY];
+
+// isDean only accepts the real booleans true / false (not 'true', 1, 'yes'...). Returns an error message or null.
+const isDeanError = (body) => (body.isDean !== undefined && typeof body.isDean !== 'boolean') ? 'isDean only accepts true or false.' : null;
 
 // The Student/Teacher schemas mark many profile fields as required. The admin form only collects the
 // essentials, so anything left blank is filled with a neutral placeholder the user can update in Settings.
@@ -107,8 +113,9 @@ const createUser = async (req, res) => {
     const Model = modelFor(accountType);
     if (!Model) return res.status(400).json({ success: false, message: 'Invalid account type.' });
 
-    const allowed = accountType === 'Student' ? [...COMMON_FIELDS, ...STUDENT_ONLY] : COMMON_FIELDS;
-    const data = withDefaults(pick(req.body, allowed));
+    if (accountType === 'Teacher' && isDeanError(req.body)) return res.status(400).json({ success: false, message: isDeanError(req.body) });
+
+    const data = withDefaults(pick(req.body, allowedFor(accountType)));
 
     // The School ID is always assigned by the server (next number after the highest existing ID);
     // any schoolId sent by the client is ignored. Retry if another admin grabbed the same number first.
@@ -149,10 +156,10 @@ const updateUser = async (req, res) => {
     } else {
       const Model = modelFor(accountType);
       if (!Model) return res.status(400).json({ success: false, message: 'Invalid account type.' });
-      const allowed = accountType === 'Student' ? [...COMMON_FIELDS, ...STUDENT_ONLY] : COMMON_FIELDS;
+      if (accountType === 'Teacher' && isDeanError(req.body)) return res.status(400).json({ success: false, message: isDeanError(req.body) });
       // schoolId is intentionally NOT editable: submissions, forum posts, friendships and
       // enrolments all reference it.
-      const data = pick(req.body, allowed);
+      const data = pick(req.body, allowedFor(accountType));
       if (data.middleName && data.middleName !== 'N/A' && data.middleInitial === undefined) data.middleInitial = data.middleName.trim()[0].toUpperCase();
       updated = await Model.findByIdAndUpdate(id, data, { new: true, runValidators: true });
     }
@@ -251,28 +258,22 @@ const getAllCourses = async (req, res) => {
 
 const createCourse = async (req, res) => {
   try {
-    const { code, name, targetProgram, targetYear, color, instructorID } = req.body;
+    // Instructors are assigned by Deans (see staffRoutes), so any instructorID sent here is ignored.
+    const { code, name, targetProgram, targetYear, color } = req.body;
     const course = await new Course({ code: (code || '').trim(), name, targetProgram, targetYear, color }).save();
     await new CourseContent({ courseCode: course.code }).save();
-    if (instructorID) await setCourseInstructor(course.code, instructorID);
     res.json({ success: true, message: 'Course created successfully.', course: await Course.findById(course._id) });
-  } catch (err) {
-    if (err.status === 404) return res.status(404).json({ success: false, message: 'Course saved, but the selected instructor was not found.' });
-    fail(res, err, 'Failed to create course.');
-  }
+  } catch (err) { fail(res, err, 'Failed to create course.'); }
 };
 
 const updateCourse = async (req, res) => {
-  const { code, name, targetProgram, targetYear, color, instructorID } = req.body;
+  // Instructors are assigned by Deans, so any instructorID sent here is ignored.
+  const { code, name, targetProgram, targetYear, color } = req.body;
   try {
     const updated = await Course.findOneAndUpdate({ code }, { name, targetProgram, targetYear, color }, { new: true, runValidators: true });
     if (!updated) return res.status(404).json({ success: false, message: 'Course not found.' });
-    if (instructorID !== undefined) await setCourseInstructor(code, instructorID || '');
     res.json({ success: true, message: 'Course updated successfully.', course: await Course.findOne({ code }) });
-  } catch (err) {
-    if (err.status === 404) return res.status(404).json({ success: false, message: 'Instructor not found.' });
-    fail(res, err, 'Failed to update course.');
-  }
+  } catch (err) { fail(res, err, 'Failed to update course.'); }
 };
 
 const deleteCourse = async (req, res) => {
@@ -301,7 +302,8 @@ const getCourseRoster = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to load roster.'); }
 };
 
-// Enrol / unenrol / (re)assign instructor
+// Enrol / unenrol / (re)assign instructor.
+// NOT routed under /api/admin any more: these are Dean-only (see routes/staffRoutes.js), which re-uses them.
 const assignUserCourse = async (req, res) => {
   const { schoolId, accountType, courseCode } = req.body;
   try {
@@ -528,25 +530,6 @@ const deleteForumReply = async (req, res) => {
 };
 
 /* ------------------------------------------------------------------ */
-/*  COURSE COMPLETION  (admin side; teachers use courseController)     */
-/* ------------------------------------------------------------------ */
-const completeStudentCourse = async (req, res) => {
-  const { schoolId, courseCode } = req.body;
-  try {
-    if (!schoolId || !courseCode) return res.status(400).json({ success: false, message: 'schoolId and courseCode are required.' });
-    const student = await markCourseComplete({
-      studentSchoolId: schoolId, courseCode,
-      byName: `${req.admin.firstName || ''} ${req.admin.lastName || ''}`.trim() || req.admin.username,
-      byRole: 'Admin'
-    });
-    res.json({ success: true, message: `${courseCode} marked as completed.`, student });
-  } catch (err) {
-    if (err.status) return res.status(err.status).json({ success: false, message: err.message });
-    fail(res, err, 'Failed to mark course as completed.');
-  }
-};
-
-/* ------------------------------------------------------------------ */
 /*  DEPARTMENTS                                                        */
 /* ------------------------------------------------------------------ */
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -686,7 +669,7 @@ const changeOwnPassword = async (req, res) => {
 module.exports = {
   getSystemStats,
   getAllUsers, createUser, previewNextSchoolId, updateUser, setUserStatus, resetUserPassword, deleteUser,
-  completeStudentCourse, getDepartments, createDepartment, updateDepartment, deleteDepartment,
+  getDepartments, createDepartment, updateDepartment, deleteDepartment,
   getAllCourses, createCourse, updateCourse, deleteCourse, getCourseRoster, assignUserCourse, removeUserCourse,
   getCourseContent, addContentItem, updateContentItem, deleteContentItem,
   getAssignments, updateAssignment, deleteAssignment, getSubmissions, updateSubmission, deleteSubmission,

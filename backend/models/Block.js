@@ -13,5 +13,6 @@ const blockSchema = new mongoose.Schema({
     schoolId: { type: String, required: true, unique: true }
   }],
   amountOfStudents: { type: Number },
+  maxAmountOfStudents: { type: Number}
 });
 module.exports = mongoose.model('Block', blockSchema);

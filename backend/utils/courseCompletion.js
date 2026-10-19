@@ -4,7 +4,7 @@ const Notification = require('../models/Notification');
 
 /**
  * Moves a course from a student's registered courses (enrolledCourseSubjects) to their
- * completedCourses. Shared by the teacher route and the admin route so both behave identically.
+ * completedCourses. Shared by the teacher route and the dean route so both behave identically (admins cannot complete courses).
  *
  * Throws an Error with a `.status` (400 / 404 / 409) and a user-facing message on failure.
  *
@@ -12,7 +12,7 @@ const Notification = require('../models/Notification');
  * @param {string} args.studentSchoolId
  * @param {string} args.courseCode
  * @param {string} args.byName   display name of whoever marked it complete
- * @param {'Teacher'|'Admin'} args.byRole
+ * @param {'Teacher'|'Dean'} args.byRole
  */
 const markCourseComplete = async ({ studentSchoolId, courseCode, byName, byRole }) => {
   const fail = (status, message) => Object.assign(new Error(message), { status });

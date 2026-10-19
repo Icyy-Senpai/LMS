@@ -39,6 +39,23 @@ const teacherSchema = new mongoose.Schema({
   status: { type: String, enum: ['Active', 'Suspended'], default: 'Active' },
   accountType : {type: String, required: true, default: 'Teacher'},
 
+  // Marks a Teacher account as a Dean. Only a real boolean is accepted (true | false).
+  // false (default) -> logs in to the Teacher dashboard; true -> logs in to the Dean's dashboard.
+  // The account is still a 'Teacher' account either way, so Deans can hold courses and teach.
+  isDean: {
+    type: Boolean,
+    required: true,
+    default: false,
+    // Runs before Mongoose's own casting, which would otherwise turn 'true', 'yes', 1... into a boolean.
+    set: (v) => {
+      if (v !== undefined && typeof v !== 'boolean') throw new TypeError('isDean only accepts true or false.');
+      return v;
+    },
+    validate: { validator: (v) => typeof v === 'boolean', message: 'isDean only accepts true or false.' }
+  },
+  // The block this teacher is currently assigned to. Changed by a Dean (see staffController).
+  block: { type: String, default: '' },
+
   points: { type: Number, default: 0 },
   badges: [{ type: String }],
   courseSubjectHeld: [{

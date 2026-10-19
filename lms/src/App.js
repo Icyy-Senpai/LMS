@@ -5,6 +5,7 @@ import './App.css';
 import Login from './components/Login';
 import StudentDashboard from './components/Student/StudentDashboard';
 import TeacherDashboard from './components/Teacher/TeacherDashboard';
+import DeanDashboard from './components/Dean/DeanDashboard';
 import AdminDashboard from './components/Admin/AdminDashboard';
 
 export default function App() {
@@ -69,6 +70,9 @@ export default function App() {
         <Login onLoginSuccess={handleUserUpdate} />
       ) : user.accountType === 'Student' ? (
         <StudentDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
+      ) : user.accountType === 'Teacher' && user.isDean === true ? (
+        // A Teacher account with isDean: true logs in to the Dean's dashboard; anything else is a plain teacher.
+        <DeanDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : user.accountType === 'Teacher' ? (
         <TeacherDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : user.accountType === 'Admin' ? (

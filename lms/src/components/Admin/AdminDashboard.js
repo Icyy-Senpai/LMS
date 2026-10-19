@@ -3,13 +3,12 @@ import { Layout, Menu, Button, Card, Typography, Row, Col, Table, Tag, Statistic
 import {
   DashboardOutlined, TeamOutlined, BookOutlined, SafetyOutlined, LogoutOutlined, DeleteOutlined, EditOutlined,
   PlusOutlined, UserAddOutlined, SettingOutlined, NotificationOutlined, FileTextOutlined, UserOutlined,
-  KeyOutlined, StopOutlined, CheckCircleOutlined, MoreOutlined, ReadOutlined, ApartmentOutlined
+  KeyOutlined, StopOutlined, CheckCircleOutlined, MoreOutlined, ApartmentOutlined
 } from '@ant-design/icons';
 import api from '../../api';
-import { showError, fullName, getUserCoursesCount } from './adminUtils';
+import { showError, fullName } from './adminUtils';
 import UserFormModal from './UserFormModal';
 import ResetPasswordModal from './ResetPasswordModal';
-import UserCoursesModal from './UserCoursesModal';
 import CourseFormModal from './CourseFormModal';
 import CourseDetailsModal from './CourseDetailsModal';
 import AssignmentsPanel from './AssignmentsPanel';
@@ -40,7 +39,6 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
   // Modal state
   const [userForm, setUserForm] = useState({ open: false, mode: 'create', user: null });
   const [resetUser, setResetUser] = useState(null);
-  const [coursesUser, setCoursesUser] = useState(null);
   const [courseForm, setCourseForm] = useState({ open: false, course: null });
   const [detailsCourse, setDetailsCourse] = useState(null);
   const [broadcastOpen, setBroadcastOpen] = useState(false);
@@ -74,7 +72,6 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
   useEffect(() => { refreshAll(); }, [refreshAll]);
   useEffect(() => { if (activeTab === 'analytics') fetchStats(); }, [activeTab, fetchStats]);
 
-  const teachers = useMemo(() => users.filter(u => u.accountType === 'Teacher'), [users]);
   // Department names the admin has created (legacy free-text values are auto-registered by the server)
   const programs = useMemo(() => departments.map(d => d.name), [departments]);
 
@@ -116,12 +113,9 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
   const userColumns = [
     { title: 'System ID', key: 'id', render: (_, r) => r.schoolId || r.username },
     { title: 'Full Name', key: 'name', render: (_, r) => <Text strong>{fullName(r)}</Text> },
-    { title: 'Role', dataIndex: 'accountType', render: role => <Tag color={ROLE_COLORS[role]}>{role}</Tag> },
+    { title: 'Role', key: 'role', render: (_, r) => <Space size={4}><Tag color={ROLE_COLORS[r.accountType]}>{r.accountType}</Tag>{r.accountType === 'Teacher' && r.isDean === true && <Tag color="gold">Dean</Tag>}</Space> },
     { title: 'Department', dataIndex: 'department', render: d => d || '-' },
     { title: 'Status', dataIndex: 'status', render: s => <Tag color={s === 'Suspended' ? 'red' : 'green'}>{s}</Tag> },
-    { title: 'Courses', key: 'courses', render: (_, r) => r.accountType !== 'Admin' && (
-      <Button size="small" icon={<ReadOutlined />} onClick={() => setCoursesUser(r)}>Manage ({getUserCoursesCount(r)})</Button>
-    ) },
     { title: 'Actions', key: 'actions', render: (_, r) => {
       const isSelf = r._id === user._id;
       return (
@@ -247,9 +241,8 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
 
       <UserFormModal open={userForm.open} mode={userForm.mode} user={userForm.user} programs={programs} onClose={() => setUserForm(s => ({ ...s, open: false }))} onSaved={refreshAll} />
       <ResetPasswordModal open={Boolean(resetUser)} user={resetUser} onClose={() => setResetUser(null)} />
-      <UserCoursesModal open={Boolean(coursesUser)} user={coursesUser} courses={courses} onClose={() => setCoursesUser(null)} onChanged={refreshAll} />
-      <CourseFormModal open={courseForm.open} course={courseForm.course} teachers={teachers} programs={programs} onClose={() => setCourseForm(s => ({ ...s, open: false }))} onSaved={refreshAll} />
-      <CourseDetailsModal open={Boolean(detailsCourse)} course={detailsCourse} allUsers={users} onClose={() => setDetailsCourse(null)} onChanged={refreshAll} />
+      <CourseFormModal open={courseForm.open} course={courseForm.course} programs={programs} onClose={() => setCourseForm(s => ({ ...s, open: false }))} onSaved={refreshAll} />
+      <CourseDetailsModal open={Boolean(detailsCourse)} course={detailsCourse} onClose={() => setDetailsCourse(null)} onChanged={refreshAll} />
       <BroadcastModal open={broadcastOpen} courses={courses} onClose={() => setBroadcastOpen(false)} />
       <AdminProfileModal open={profileOpen} user={user} onClose={() => setProfileOpen(false)} onUpdated={onUpdateProfile} />
     </Layout>

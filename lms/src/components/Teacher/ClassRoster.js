@@ -1,20 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Card, Table, Button, Popconfirm, Tag, Typography, Space, Empty, message } from 'antd';
-import { CheckCircleOutlined, TrophyOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, TrophyOutlined, SwapOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../../api';
+import ReassignBlockModal from './ReassignBlockModal';
 
 const { Text } = Typography;
 
 /**
  * Class roster for one of the teacher's courses. The teacher can mark a registered student's course as
  * completed (one at a time or in bulk); the course then moves to that student's "Completed Courses".
+ * The teacher can also move a student to a different block.
  */
 export default function ClassRoster({ course, teacher }) {
   const [roster, setRoster] = useState({ enrolled: [], completed: [] });
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [moving, setMoving] = useState(null); // student whose block is being changed
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -43,6 +46,12 @@ export default function ClassRoster({ course, teacher }) {
     load();
   };
 
+  const reassignBlock = async (block) => {
+    const res = await api.put('/staff/students/block', { studentId: moving.schoolId, block });
+    message.success(res.data.message);
+    load();
+  };
+
   const nameOf = (s) => `${s.lastName}, ${s.firstName}`;
 
   const enrolledColumns = [
@@ -50,10 +59,13 @@ export default function ClassRoster({ course, teacher }) {
     { title: 'School ID', dataIndex: 'schoolId' },
     { title: 'Year / Block', key: 'yb', render: (_, s) => `Year ${s.yearLevel ?? '-'} · ${s.block || '-'}` },
     { title: 'Action', key: 'action', render: (_, s) => (
-      <Popconfirm title="Mark this course as completed?" description={`${nameOf(s)} will move ${course.code} to Completed Courses.`}
-        okText="Mark Completed" cancelText="Cancel" onConfirm={() => complete([s.schoolId])}>
-        <Button size="small" type="primary" icon={<CheckCircleOutlined />} disabled={busy}>Mark Completed</Button>
-      </Popconfirm>
+      <Space>
+        <Popconfirm title="Mark this course as completed?" description={`${nameOf(s)} will move ${course.code} to Completed Courses.`}
+          okText="Mark Completed" cancelText="Cancel" onConfirm={() => complete([s.schoolId])}>
+          <Button size="small" type="primary" icon={<CheckCircleOutlined />} disabled={busy}>Mark Completed</Button>
+        </Popconfirm>
+        <Button size="small" icon={<SwapOutlined />} onClick={() => setMoving(s)}>Change Block</Button>
+      </Space>
     ) }
   ];
 
@@ -61,7 +73,10 @@ export default function ClassRoster({ course, teacher }) {
     { title: 'Student', key: 'name', render: (_, s) => nameOf(s) },
     { title: 'School ID', dataIndex: 'schoolId' },
     { title: 'Completed', key: 'on', render: (_, s) => (s.completion?.completedAt ? dayjs(s.completion.completedAt).format('MMM D, YYYY') : '-') },
-    { title: 'Marked by', key: 'by', render: (_, s) => s.completion?.completedBy || '-' }
+    { title: 'Marked by', key: 'by', render: (_, s) => s.completion?.completedBy || '-' },
+    { title: 'Block', key: 'block', render: (_, s) => (
+      <Space>{s.block || '-'}<Button size="small" icon={<SwapOutlined />} onClick={() => setMoving(s)}>Change</Button></Space>
+    ) }
   ];
 
   return (
@@ -82,6 +97,9 @@ export default function ClassRoster({ course, teacher }) {
       <Table size="small" rowKey="schoolId" loading={loading} dataSource={roster.completed} columns={completedColumns}
         pagination={{ pageSize: 5, size: 'small', hideOnSinglePage: true }}
         locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No students have completed this course yet." /> }} />
+
+      <ReassignBlockModal open={Boolean(moving)} personLabel={moving ? nameOf(moving) : ''} currentBlock={moving?.block}
+        onClose={() => setMoving(null)} onSubmit={reassignBlock} />
     </Card>
   );
 }

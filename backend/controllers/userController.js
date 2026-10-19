@@ -58,6 +58,9 @@ const getAdminUsers = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   const { schoolId, photoUrl, mobileNum, teleNum, personalEmail, bio, ...rest } = req.body;
+  // Self-service profile edits must never touch privileged fields. (isDean would otherwise let any teacher
+  // promote themselves to Dean, and block is changed only through the teacher/dean reassign endpoints.)
+  ['isDean', 'block', 'accountType', 'status', 'password', 'completedCourses'].forEach(k => delete rest[k]);
   try {
     const updateData = { photoUrl, mobileNum, teleNum, personalEmail, bio, ...rest };
     let updatedUser = await Student.findOneAndUpdate({ schoolId }, updateData, { new: true });

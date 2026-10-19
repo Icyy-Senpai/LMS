@@ -87,7 +87,7 @@ const completeCourseForStudent = async (req, res) => {
     const { teacher } = await loadOwnedCourse(teacherId, courseCode);
     await markCourseComplete({
       studentSchoolId: studentId, courseCode,
-      byName: `Prof. ${teacher.lastName}, ${teacher.firstName}`, byRole: 'Teacher'
+      byName: `Prof. ${teacher.lastName}, ${teacher.firstName}`, byRole: teacher.isDean === true ? 'Dean' : 'Teacher'
     });
     res.json({ success: true, message: `${courseCode} marked as completed.` });
   } catch (err) { sendErr(res, err, 'Failed to mark course as completed.'); }

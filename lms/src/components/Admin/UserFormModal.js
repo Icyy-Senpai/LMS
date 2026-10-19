@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Select, Row, Col, Button, Divider, Tag, message } from 'antd';
+import { Modal, Form, Input, Select, Row, Col, Button, Divider, Tag, Switch, message } from 'antd';
 import api from '../../api';
 import { showError } from './adminUtils';
 
@@ -21,9 +21,9 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
     if (!open) return;
     form.resetFields();
     if (isEdit && user) {
-      form.setFieldsValue({ ...user, schoolEmail: user.schoolEmail || user.email, email: user.email });
+      form.setFieldsValue({ ...user, schoolEmail: user.schoolEmail || user.email, email: user.email, isDean: user.isDean === true });
     } else {
-      form.setFieldsValue({ accountType: 'Student' });
+      form.setFieldsValue({ accountType: 'Student', isDean: false });
     }
   }, [open, isEdit, user, form]);
 
@@ -73,7 +73,7 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
             <Select options={[{ value: 'Student' }, { value: 'Teacher' }, { value: 'Admin' }]} />
           </Form.Item>
         )}
-        {isEdit && <div style={{ marginBottom: 16 }}><Tag color={accountType === 'Teacher' ? 'blue' : accountType === 'Admin' ? 'purple' : 'green'}>{accountType}</Tag></div>}
+        {isEdit && <div style={{ marginBottom: 16 }}><Tag color={accountType === 'Teacher' ? 'blue' : accountType === 'Admin' ? 'purple' : 'green'}>{accountType}</Tag>{accountType === 'Teacher' && user?.isDean === true && <Tag color="gold">Dean</Tag>}</div>}
 
         <Divider orientation="left" plain>Account</Divider>
         <Row gutter={16}>
@@ -140,6 +140,15 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
                   <Select showSearch allowClear={accountType !== 'Student'} options={programOptions} optionFilterProp="label" placeholder="Select a department" notFoundContent="No departments yet. Create one in the Departments tab." />
                 </Form.Item>
               </Col>
+              {accountType === 'Teacher' && (
+                <Col span={24}>
+                  {/* isDean is strictly true / false. false = Teacher dashboard at login, true = Dean's dashboard. */}
+                  <Form.Item name="isDean" label="Dean Account" valuePropName="checked"
+                    extra="Off: logs in to the Teacher dashboard. On: logs in to the Dean's dashboard (all teacher features, plus reassigning teachers to blocks and reassigning users with courses).">
+                    <Switch checkedChildren="Dean" unCheckedChildren="Teacher" />
+                  </Form.Item>
+                </Col>
+              )}
               {accountType === 'Student' && (
                 <>
                   <Col span={6}><Form.Item name="yearLevel" label="Year Level" rules={[{ required: true }]}><Select options={[1, 2, 3, 4, 5].map(v => ({ value: v, label: `Year ${v}` }))} /></Form.Item></Col>

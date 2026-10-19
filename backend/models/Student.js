@@ -51,7 +51,7 @@ const studentSchema = new mongoose.Schema({
   enrolledCourseSubjects: [{
     code: { type: String },
   }],
-  // Courses a teacher/admin has marked as finished. A course moves here from enrolledCourseSubjects.
+  // Courses a teacher/dean has marked as finished. A course moves here from enrolledCourseSubjects.
   // name/instructor are snapshots so the record still reads correctly if the course is later renamed or deleted.
   completedCourses: [{
     code: { type: String, required: true },
@@ -59,7 +59,7 @@ const studentSchema = new mongoose.Schema({
     instructor: { type: String, default: '' },
     completedAt: { type: Date, default: Date.now },
     completedBy: { type: String, default: '' },
-    completedByRole: { type: String, enum: ['Teacher', 'Admin'], default: 'Teacher' }
+    completedByRole: { type: String, enum: ['Teacher', 'Dean', 'Admin'], default: 'Teacher' }
   }],
   todos: [{
     id: { type: String },

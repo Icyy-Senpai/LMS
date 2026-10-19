@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Input, Card, Form, Typography, List, Row, Col, Modal, message, Tag, Avatar, Badge, Calendar, Popover, Upload, Spin, Empty, Tabs, Space, Divider, Select } from 'antd';
-import { UserOutlined, DashboardOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, FolderOpenOutlined, MailOutlined } from '@ant-design/icons';
+import { UserOutlined, DashboardOutlined, LogoutOutlined, SettingOutlined, AppstoreOutlined, PlusOutlined, BellOutlined, CommentOutlined, EditOutlined, FolderOpenOutlined, MailOutlined, CrownOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import CourseWorkspace from './CourseWorkspace';
 import Network from '../Shared/Network';
 import Forum from '../Shared/Forum';
 import Mailbox from '../Shared/Mailbox';
+import DeanPanel from '../Dean/DeanPanel';
 import api from '../../api';
 import logoImage from '../../logo.png';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
-export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
-  const [activeTab, setActiveTab] = useState('dashboard');
+// `isDean` is passed by DeanDashboard. A Dean has every teacher feature plus the Dean's Office tab.
+export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDean = false }) {
+  const [activeTab, setActiveTab] = useState(isDean ? 'dean' : 'dashboard');
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [forumCourseCode, setForumCourseCode] = useState(null); 
 
@@ -45,6 +47,23 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
       document.title = `eLMS | ${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`;
     }
   }, [activeTab, selectedCourse]);
+
+  // The user object is a login-time snapshot. Re-read it once so a changed block or a change to isDean
+  // (promotion / demotion by an admin) is picked up; App swaps to the matching dashboard if isDean changed.
+  useEffect(() => {
+    let cancelled = false;
+    api.get(`/user/${user.schoolId}`).then(res => {
+      const fresh = res.data?.user;
+      if (cancelled || !res.data?.success || !fresh) return;
+      const roleChanged = (fresh.isDean === true) !== (user.isDean === true);
+      const blockChanged = (fresh.block || '') !== (user.block || '');
+      if ((roleChanged || blockChanged) && typeof onUpdateProfile === 'function') {
+        onUpdateProfile({ ...user, ...fresh, isDean: fresh.isDean === true });
+      }
+    }).catch(() => { /* non-critical */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.schoolId]);
 
   // Fetch Courses
   useEffect(() => {
@@ -210,7 +229,8 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
   );
 
   const menuItems = [
-    { key: 'dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
+    ...(isDean ? [{ key: 'dean', icon: <CrownOutlined />, label: "Dean's Office" }] : []),
+    { key: 'dashboard', icon: <DashboardOutlined />, label: isDean ? 'Teaching Dashboard' : 'Dashboard' },
     { key: 'catalog', icon: <AppstoreOutlined />, label: (
         <Popover placement="rightTop" content={catalogPopoverContent} trigger="hover">
             <div style={{ width: '100%' }}>My Subjects</div>
@@ -227,6 +247,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
 
   const getHeaderTitle = () => {
     if (selectedCourse) return `${selectedCourse.code} Workspace`;
+    if (activeTab === 'dean') return "Dean's Office";
     if (activeTab === 'profile') return `Prof. ${user.lastName} | Profile`;
     return activeTab.replace('-', ' ');
   };
@@ -251,14 +272,14 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
 
       <Sider theme="light" width={250} collapsible collapsed={collapsed} onMouseEnter={() => setCollapsed(false)} onMouseLeave={() => setCollapsed(true)} trigger={null} style={{ borderRight: '1px solid #f0f0f0' }}>
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <div onClick={() => { setActiveTab('dashboard'); setSelectedCourse(null); }} style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', transition: 'background-color 0.3s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fafafa'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-            {collapsed ? <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /> : <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /><Title level={4} style={{ margin: '0 0 0 5px', color: '#c62828' }}>eLMS Faculty</Title></div>}
+          <div onClick={() => { setActiveTab(isDean ? 'dean' : 'dashboard'); setSelectedCourse(null); }} style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0', cursor: 'pointer', transition: 'background-color 0.3s' }} onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fafafa'} onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            {collapsed ? <img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /> : <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><img src={logoImage} alt="Logo" style={{ height: '40px', width: '40px', objectFit: 'contain' }} /><Title level={4} style={{ margin: '0 0 0 5px', color: '#c62828' }}>{isDean ? 'eLMS Dean' : 'eLMS Faculty'}</Title></div>}
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}><Menu mode="inline" selectedKeys={selectedCourse ? [] : [activeTab]} onClick={(e) => { if(e.key !== 'catalog') { setActiveTab(e.key); setSelectedCourse(null); } }} items={menuItems} style={{ borderRight: 0, marginTop: 16 }} /></div>
           <div style={{ padding: collapsed ? '16px 8px' : '16px', borderTop: '1px solid #f0f0f0', backgroundColor: '#fafafa' }}>
             {collapsed ? <Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} /> : (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}><Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} /><div style={{ overflow: 'hidden' }}><div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>Prof. {user.lastName}</div><div style={{ fontSize: '12px', color: '#757575', fontWeight: 'bold' }}>Faculty</div></div></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}><Avatar src={user.photoUrl} style={{ backgroundColor: '#c62828' }} icon={!user.photoUrl && <UserOutlined />} /><div style={{ overflow: 'hidden' }}><div style={{ fontWeight: 'bold', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>Prof. {user.lastName}</div><div style={{ fontSize: '12px', color: '#757575', fontWeight: 'bold' }}>{isDean ? 'Dean' : 'Faculty'}</div></div></div>
                 <div style={{ display: 'flex', gap: 8 }}><Button icon={<SettingOutlined />} onClick={() => { form.setFieldsValue(user); setAvatarUrl(user.photoUrl); setIsProfileModalVisible(true); }} style={{ flex: 1, fontSize: '12px' }}>Settings</Button><Button danger icon={<LogoutOutlined />} onClick={onLogout} style={{ flex: 1, fontSize: '12px' }}>Logout</Button></div>
               </>
             )}
@@ -391,6 +412,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                   </Col>
                 </Row>
               )}
+              {isDean && activeTab === 'dean' && <DeanPanel dean={user} />}
               {activeTab === 'network' && <Network currentUser={user} />}
               {activeTab === 'mailbox' && <Mailbox user={user} notifications={notifications} onNotificationsChange={setNotifications} courseAlerts={mailboxItems} onOpenCourse={(code) => { const c = myCourses.find(x => x.code === code); if (c) setSelectedCourse(c); }} />}
               {activeTab === 'forum' && (
@@ -411,7 +433,7 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile }) {
                         <Title level={3} style={{ margin: 0 }}>{user.firstName} {user.middleName} {user.lastName}</Title>
                         <Text type="secondary" style={{ fontSize: '15px' }}>{user.schoolId}   {user.department || 'Faculty Member'}</Text><br />
                         <Text>{user.schoolEmail}</Text>
-                        <div style={{ marginTop: 8 }}><Tag color="green">Faculty / Instructor</Tag></div>
+                        <div style={{ marginTop: 8 }}><Tag color="green">Faculty / Instructor</Tag>{isDean && <Tag color="gold" icon={<CrownOutlined />}>Dean</Tag>}{user.block && <Tag color="blue">Block {user.block}</Tag>}</div>
                       </Col>
                     </Row>
                   </Card>
