@@ -8,19 +8,13 @@ import AssignBadgeModal from './AssignBadgeModal';
 
 const { Text } = Typography;
 
-/**
- * Class roster for one of the teacher's courses in ONE block (the students of that block). The teacher can mark a
- * registered student's course as completed (one at a time or in bulk); the course then moves to that student's
- * "Completed Courses". The teacher can also move a student to a different block.
- * `onRosterChange(students)` receives every student listed (registered + completed), e.g. for grading.
- */
 export default function ClassRoster({ course, block, teacher, onRosterChange }) {
   const [roster, setRoster] = useState({ enrolled: [], completed: [] });
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [moving, setMoving] = useState(null); // student whose block is being changed
-  const [badgeFor, setBadgeFor] = useState(null); // student a badge is being assigned to
+  const [moving, setMoving] = useState(null);
+  const [badgeFor, setBadgeFor] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);

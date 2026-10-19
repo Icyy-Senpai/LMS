@@ -6,10 +6,6 @@ import { showError } from './adminUtils';
 const GENDERS = ['Male', 'Female', 'Other'].map(v => ({ value: v }));
 const CIVIL = ['Single', 'Married', 'Widowed', 'Separated'].map(v => ({ value: v }));
 
-/**
- * Add / Edit user modal (Student, Teacher or Admin).
- * mode = 'create' | 'edit'. In edit mode `user` is the row being edited.
- */
 export default function UserFormModal({ open, mode, user, programs = [], onClose, onSaved }) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
@@ -29,7 +25,6 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
     }
   }, [open, isEdit, user, form]);
 
-  // Blocks a student can be placed in (created by Deans).
   useEffect(() => {
     if (!open) return;
     api.get('/admin/blocks')
@@ -37,15 +32,13 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
       .catch(() => setBlocks([]));
   }, [open]);
 
-  // New Student / Teacher: preview the School ID the server will assign (next number after the highest existing one).
-  // The server picks the final value when the account is created, so this is display-only.
   useEffect(() => {
     if (!open || isEdit || (accountType !== 'Student' && accountType !== 'Teacher')) return;
     let cancelled = false;
     form.setFieldsValue({ schoolId: undefined });
     api.get('/admin/next-school-id', { params: { accountType } })
       .then(res => { if (!cancelled && res.data.success) form.setFieldsValue({ schoolId: res.data.schoolId }); })
-      .catch(() => { /* the field just stays on its placeholder; the server still assigns an ID */ });
+      .catch(() => { });
     return () => { cancelled = true; };
   }, [open, isEdit, accountType, form]);
 
@@ -53,10 +46,10 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
     setSaving(true);
     try {
       const payload = { ...values };
-      if (!isEdit) delete payload.schoolId; // always assigned by the server
+      if (!isEdit) delete payload.schoolId;
       ['mobileNum', 'teleNum'].forEach(k => { if (payload[k] !== undefined && payload[k] !== '') payload[k] = Number(payload[k]); });
       if (payload.yearLevel !== undefined) payload.yearLevel = Number(payload.yearLevel);
-      if (accountType === 'Student') payload.block = values.block || ''; // '' = not in a block
+      if (accountType === 'Student') payload.block = values.block || '';
       else { delete payload.block; delete payload.autoEnrollBlockSubjects; }
       const res = isEdit
         ? await api.put('/admin/users', { ...payload, id: user._id, accountType: user.accountType })
@@ -70,7 +63,6 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
     setSaving(false);
   };
 
-  // Departments are created by the admin (Departments tab). Keep a user's current value selectable even if it is not registered.
   const programOptions = [...new Set([...programs, user?.department].filter(Boolean))].map(p => ({ value: p, label: p }));
   const isAdminType = accountType === 'Admin';
 
@@ -154,7 +146,6 @@ export default function UserFormModal({ open, mode, user, programs = [], onClose
               </Col>
               {accountType === 'Teacher' && (
                 <Col span={24}>
-                  {/* isDean is strictly true / false. false = Teacher dashboard at login, true = Dean's dashboard. */}
                   <Form.Item name="isDean" label="Dean Account" valuePropName="checked"
                     extra="Off: logs in to the Teacher dashboard. On: logs in to the Dean's dashboard (all teacher features, plus reassigning teachers to blocks and reassigning users with courses).">
                     <Switch checkedChildren="Dean" unCheckedChildren="Teacher" />

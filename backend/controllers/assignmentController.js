@@ -4,10 +4,6 @@ const Student = require('../models/Student');
 const Course = require('../models/Course');
 const { blocksTaughtBy, assertTeaches } = require('../utils/blocks');
 
-// Assignments are block-based. Which blocks to return:
-//   ?studentId=X  -> that student's block (students; read from the database, not from the client)
-//   ?block=A,B    -> those blocks (a teacher's block workspace / dashboard)
-// Older assignments with no block are returned for every block.
 const getAssignmentsByCourse = async (req, res) => {
   try {
     let blocks = null;
@@ -19,10 +15,9 @@ const getAssignmentsByCourse = async (req, res) => {
     }
 
     const query = { courseCode: req.params.courseCode };
-    if (blocks) query.block = { $in: [...blocks, '', null] }; // null also matches documents without the field
+    if (blocks) query.block = { $in: [...blocks, '', null] };
     const assignments = await Assignment.find(query).sort({ createdAt: -1 }).lean();
 
-    // Older (block-less) assignments are shared, so only show the submissions of the requested blocks' students.
     const blockStudents = blocks ? new Set(await Student.distinct('schoolId', { block: { $in: blocks } })) : null;
     for (let i = 0; i < assignments.length; i++) {
         let subs = await Submission.find({ assignmentId: assignments[i]._id }).lean();
@@ -38,7 +33,6 @@ const getAssignmentsByCourse = async (req, res) => {
 
 const createAssignment = async (req, res) => {
   try {
-    // Every new assignment / quiz belongs to one block, which the teacher must teach this course in.
     const block = typeof req.body.block === 'string' ? req.body.block.trim() : '';
     if (!block) return res.status(400).json({ success: false, message: 'Open the block you want to post this in first.' });
     await assertTeaches(req.teacher, req.body.courseCode, block);
@@ -59,9 +53,6 @@ const submitAssignment = async (req, res) => {
   const { assignmentId, studentUsername, fileUrl, fileName, fileData, answers, grade, cheatingFlag } = req.body;
   
   try {
-    // Student-only. The client attaches x-admin-id / x-teacher-id for admin and staff sessions (see lms/src/api.js),
-    // so those are refused: this route also carries the quiz auto-grade, and only Teachers/Deans grade
-    // (POST /assignments/grade). Admins never grade.
     if (req.header('x-admin-id') || req.header('x-teacher-id')) {
       return res.status(403).json({ success: false, message: 'Only students can submit work.' });
     }
@@ -83,7 +74,6 @@ const submitAssignment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Submissions are strictly closed for this assignment.' });
     }
 
-    // Upsert the submission in the new model
     let submission = await Submission.findOne({ assignmentId, studentUsername });
     
     if (submission) {
@@ -122,8 +112,6 @@ const gradeSubmission = async (req, res) => {
     const submission = await Submission.findById(submissionId);
     if (!submission) return res.status(404).json({ success: false, message: 'Submission not found' });
 
-    // Graded by the professor of the assignment's block. Older block-less assignments: whoever teaches the course in
-    // the student's block, or the course's lead instructor.
     const course = await Course.findOne({ code: submission.courseCode });
     const assignment = await Assignment.findById(submission.assignmentId, 'block').lean();
     const blocks = course ? await blocksTaughtBy(req.teacher, course) : [];
@@ -147,7 +135,6 @@ const gradeSubmission = async (req, res) => {
     submission.feedback = feedback;
     await submission.save();
 
-    // Give EXP points to the student based on the grade change
     const expDifference = newGrade - prevGrade;
     if (expDifference !== 0) {
       await Student.findOneAndUpdate(
@@ -169,7 +156,6 @@ const deleteAssignment = async (req, res) => {
     if (assignment.block) {
       await assertTeaches(req.teacher, assignment.courseCode, assignment.block);
     } else {
-      // Older block-less assignments are shared by every block, so only the course's lead instructor may remove them.
       const course = await Course.findOne({ code: assignment.courseCode }, 'instructorID').lean();
       if (course?.instructorID !== req.teacher.schoolId) {
         return res.status(403).json({ success: false, message: 'This older assignment is shared by every block; only the course lead instructor can delete it.' });

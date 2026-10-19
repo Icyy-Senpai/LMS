@@ -2,10 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Form, Input, InputNumber, message } from 'antd';
 import api from '../../api';
 
-/**
- * Create a block (Dean only). Mirrors the Block model (backend/models/Block.js):
- * code (unique), name, and an optional maximum number of students. New blocks start with no students.
- */
 export default function BlockFormModal({ open, onClose, onCreated }) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);

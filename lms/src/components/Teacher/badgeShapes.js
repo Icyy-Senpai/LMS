@@ -1,5 +1,3 @@
-// Badge shapes. Every path is drawn in a 100 x 100 box and used both for the live SVG preview and for the canvas
-// that crops the uploaded image into the shape. Keys must match BADGE_SHAPES in backend/models/Badge.js.
 const star = (() => {
   const pts = [];
   for (let i = 0; i < 10; i++) {
@@ -23,7 +21,6 @@ export const BADGE_SHAPES = [
 
 export const shapeByKey = (key) => BADGE_SHAPES.find(s => s.key === key) || BADGE_SHAPES[0];
 
-/** Loads a File into an HTMLImageElement. */
 export const loadImage = (file) => new Promise((resolve, reject) => {
   const url = URL.createObjectURL(file);
   const img = new Image();
@@ -32,7 +29,6 @@ export const loadImage = (file) => new Promise((resolve, reject) => {
   img.src = url;
 });
 
-/** Loads a URL (e.g. the bundled placeholder logo) into an HTMLImageElement. */
 export const loadImageUrl = (src) => new Promise((resolve, reject) => {
   const img = new Image();
   img.onload = () => resolve(img);
@@ -40,10 +36,6 @@ export const loadImageUrl = (src) => new Promise((resolve, reject) => {
   img.src = src;
 });
 
-/**
- * Crops `img` to a centred square that fills the whole shape ("cover"), clips it to the shape and returns a
- * PNG data URL with a transparent background. Nothing is stretched and nothing is left empty inside the shape.
- */
 export const renderBadgePng = (img, shapeKey, size = 320) => {
   const canvas = document.createElement('canvas');
   canvas.width = size; canvas.height = size;
@@ -53,9 +45,9 @@ export const renderBadgePng = (img, shapeKey, size = 320) => {
   ctx.save();
   ctx.scale(size / 100, size / 100);
   ctx.clip(path);
-  ctx.setTransform(1, 0, 0, 1, 0, 0); // back to pixel units; the clip region stays in force
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-  const side = Math.min(img.naturalWidth, img.naturalHeight);      // largest centred square of the photo
+  const side = Math.min(img.naturalWidth, img.naturalHeight);
   const sx = (img.naturalWidth - side) / 2;
   const sy = (img.naturalHeight - side) / 2;
   ctx.imageSmoothingQuality = 'high';

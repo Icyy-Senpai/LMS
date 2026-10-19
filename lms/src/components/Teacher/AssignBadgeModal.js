@@ -5,7 +5,6 @@ import api from '../../api';
 
 const { Text } = Typography;
 
-/** Pick one of the course's badges (for the student's block) and assign it to the student. */
 export default function AssignBadgeModal({ open, course, student, onClose, onAssigned }) {
   const [badges, setBadges] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -21,7 +20,6 @@ export default function AssignBadgeModal({ open, course, student, onClose, onAss
       .finally(() => setLoading(false));
   }, [open, course, student?.block]);
 
-  // Only badges for this student's block can be given to them.
   const forBlock = badges.filter(b => b.block === student?.block);
   const hasIt = (b) => (b.studentsWithBadge || []).some(s => s.schoolId === student?.schoolId);
 

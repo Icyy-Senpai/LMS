@@ -4,10 +4,6 @@ import { ArrowLeftOutlined, TeamOutlined, RightOutlined } from '@ant-design/icon
 
 const { Title, Text } = Typography;
 
-/**
- * The page between "My Subjects" and the CourseWorkspace: every block this teacher teaches `course` in
- * (from Block.courseProfessors, see GET /staff/my-subjects). Clicking a block opens its workspace.
- */
 export default function SubjectBlocks({ course, onOpenBlock, onBack }) {
   const blocks = course.blocks || [];
 

@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api';
 
-/**
- * focusTaskId - when set (e.g. the student clicked a task under "Upcoming Tasks"), the Assignments tab
- *               scrolls to that assignment/quiz and briefly highlights it.
- * readOnly    - used for completed courses: content stays viewable but submitting / taking quizzes is disabled.
- */
 export default function CourseView({ course, user, onBack, initialTab = 'announcements', focusTaskId, readOnly = false }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [courseContent, setCourseContent] = useState(null);
@@ -46,7 +41,6 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
     fetchCourseData();
   }, [course.code]);
 
-  // Jump to the task the student asked to be redirected to (runs once per focusTaskId, after the content has loaded)
   useEffect(() => {
     if (loading || !focusTaskId || activeTab !== 'assignments' || focusedRef.current === focusTaskId) return;
     const el = document.getElementById(`task-${focusTaskId}`);
@@ -191,7 +185,6 @@ export default function CourseView({ course, user, onBack, initialTab = 'announc
     return `${mins} minute${mins > 1 ? 's' : ''}`;
   };
 
-  // Consolidates materials and assignment files for the Shared Files tab
   const getAllSharedFiles = () => {
     let allFiles = [];
 

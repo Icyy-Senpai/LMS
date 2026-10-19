@@ -1,7 +1,5 @@
 import { theme as antdTheme } from 'antd';
 
-// Global Ant Design theme: St. Dominic College of Asia crimson / charcoal / silver (see App.css for motion).
-// Keep these values in sync with the CSS variables in index.css.
 export const palette = {
   red: '#c62828',
   redDark: '#b71c1c',
@@ -68,8 +66,6 @@ const theme = {
   },
 };
 
-// Dark mode: Ant Design's dark algorithm with the same crimson accent (slightly brighter so it reads on black),
-// charcoal surfaces and silver text. The non-Ant parts are restyled in App.css under html[data-theme='dark'].
 export const darkTheme = {
   algorithm: antdTheme.darkAlgorithm,
   token: {

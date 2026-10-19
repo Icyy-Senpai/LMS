@@ -8,7 +8,6 @@ import logoImage from '../../logo.png';
 const { Text } = Typography;
 const MAX_UPLOAD_MB = 5;
 
-// One selectable shape tile. With an image loaded it previews the exact crop (centred, filled to the shape).
 function ShapeTile({ shape, imageUrl, selected, onClick }) {
   const id = `badge-clip-${shape.key}`;
   return (
@@ -28,15 +27,10 @@ function ShapeTile({ shape, imageUrl, selected, onClick }) {
   );
 }
 
-/**
- * Create a badge for one course. The teacher uploads an image (optional) and picks a shape. With no upload, the LMS
- * logo is used as a placeholder. Either way it is cropped to fill the shape and stored (as a PNG data URL)
- * together with the name, course, block and department.
- */
 export default function BadgeFormModal({ open, course, block, onClose, onCreated }) {
   const [form] = Form.useForm();
-  const [img, setImg] = useState(null);          // HTMLImageElement of the upload
-  const [imgUrl, setImgUrl] = useState('');      // object/data URL used by the live previews
+  const [img, setImg] = useState(null);
+  const [imgUrl, setImgUrl] = useState('');
   const [shape, setShape] = useState('circle');
   const [saving, setSaving] = useState(false);
 
@@ -54,13 +48,13 @@ export default function BadgeFormModal({ open, course, block, onClose, onCreated
       reader.onload = () => { setImg(loaded); setImgUrl(reader.result); };
       reader.readAsDataURL(file);
     } catch (e) { message.error(e.message); }
-    return false; // never auto-upload; the image is sent with the form
+    return false;
   };
 
   const submit = async (values) => {
     setSaving(true);
     try {
-      const source = img || await loadImageUrl(logoImage); // no upload: fall back to the placeholder logo
+      const source = img || await loadImageUrl(logoImage);
       const photoUrl = renderBadgePng(source, shape);
       const res = await api.post('/badges', {
         name: values.name, block, shape, photoUrl, courseCode: course.code

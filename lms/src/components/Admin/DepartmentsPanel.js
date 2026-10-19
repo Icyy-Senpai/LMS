@@ -6,7 +6,6 @@ import { showError } from './adminUtils';
 
 const { Text } = Typography;
 
-/** Create / edit one department. Pass `dept` to edit. */
 function DepartmentFormModal({ open, dept, onClose, onSaved }) {
   const [form] = Form.useForm();
   const [saving, setSaving] = useState(false);
@@ -42,7 +41,6 @@ function DepartmentFormModal({ open, dept, onClose, onSaved }) {
   );
 }
 
-/** Admin "Departments" tab: list, create, rename and delete departments. */
 export default function DepartmentsPanel({ departments, loading, onChanged }) {
   const [modal, setModal] = useState({ open: false, dept: null });
 

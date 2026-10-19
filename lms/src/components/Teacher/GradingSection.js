@@ -6,13 +6,11 @@ import api from '../../api';
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-// blockScoped: `enrolledStudents` is the exact list to show (one block's students), even when it is empty.
 export default function GradingSection({ assignments, setAssignments, enrolledStudents, onDataChange, blockScoped = false }) {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [gradingSubmission, setGradingSubmission] = useState(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   
-  // Pagination state for quiz questions
   const [currentQuestionPage, setCurrentQuestionPage] = useState(1);
   const questionsPerPage = 5;
 
@@ -61,7 +59,7 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
       grade: record.submission?.grade || 0,
       feedback: record.submission?.feedback || ''
     });
-    setCurrentQuestionPage(1); // Reset pagination to page 1 when opening a new submission
+    setCurrentQuestionPage(1);
     setIsModalVisible(true);
   };
 
@@ -110,7 +108,7 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
         <List
           grid={{ gutter: 16, column: 1 }}
           dataSource={assignments}
-          pagination={{ pageSize: 5 }} // Pagination for the assignment list
+          pagination={{ pageSize: 5 }}
           renderItem={ass => (
             <List.Item>
               <Card size="small" hoverable onClick={() => setSelectedAssignment(ass)}>
@@ -129,7 +127,6 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
     );
   }
 
-  // Calculate pagination bounds for the questions array
   const studentAnswers = gradingSubmission?.submission?.answers || [];
   const startIndex = (currentQuestionPage - 1) * questionsPerPage;
   const paginatedAnswers = studentAnswers.slice(startIndex, startIndex + questionsPerPage);
@@ -146,7 +143,7 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
         size="small" 
         dataSource={getStudentTableData()} 
         columns={columns} 
-        pagination={{ pageSize: 10 }} // Pagination for the student roster
+        pagination={{ pageSize: 10 }}
       />
 
       <Modal title={`Evaluate: ${gradingSubmission?.name}`} open={isModalVisible} onCancel={() => setIsModalVisible(false)} footer={null} destroyOnClose width={850}>
@@ -166,7 +163,6 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
               </Space>
             )}
 
-            {/* AI Auto-Checked Quiz Answers Display in Form Layout */}
             {selectedAssignment.type === 'Quiz' && studentAnswers.length > 0 && (
                 <div>
                     <Title level={5} style={{ marginBottom: '5px' }}>Student's Quiz Responses</Title>
@@ -176,7 +172,6 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
                     
                     {paginatedAnswers.map((ans, idx) => {
                         const originalIndex = startIndex + idx;
-                        // Cross-reference the original question to fetch options for MCQs
                         const originalQuestion = selectedAssignment.questions.find(q => q.question === ans.question) || selectedAssignment.questions[originalIndex];
                         const isFullyCorrect = ans.pointsAwarded > 0;
 
@@ -199,7 +194,6 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
                                 </Tag>
                               </div>
                               
-                              {/* Recreate the Student's Form Input */}
                               {originalQuestion?.type === 'mcq' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px', marginBottom: '10px' }}>
                                   {originalQuestion.options.map((opt, oIdx) => {
@@ -282,7 +276,6 @@ export default function GradingSection({ assignments, setAssignments, enrolledSt
                                 </div>
                               )}
 
-                              {/* AI Feedback Box */}
                               {ans.aiFeedback && (
                                   <div style={{ marginTop: '15px', padding: '10px', background: '#fdecea', border: '1px solid #f5c2c0', borderRadius: '4px', fontSize: '13px' }}>
                                       <RobotOutlined style={{ marginRight: '8px', color: '#c62828' }} />

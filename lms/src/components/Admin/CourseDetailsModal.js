@@ -7,17 +7,11 @@ import CourseContentManager from './CourseContentManager';
 
 const { Text } = Typography;
 
-/**
- * Everything an admin can manage inside one course: announcements, videos, materials (per block). Assignments, quizzes,
- * submissions and grading are Teacher / Dean features and are not shown to admins.
- * The roster is view-only: enrolling / removing people and marking courses completed are not admin features
- * (reassigning is Dean-only; completing is Dean/Teacher-only).
- */
 export default function CourseDetailsModal({ open, course, onClose, onChanged }) {
   const [roster, setRoster] = useState({ students: [], teachers: [], completedStudents: [] });
   const [loading, setLoading] = useState(false);
-  const [blocks, setBlocks] = useState([]);       // blocks this course is registered to
-  const [contentBlock, setContentBlock] = useState(''); // '' = course-wide content
+  const [blocks, setBlocks] = useState([]);
+  const [contentBlock, setContentBlock] = useState('');
 
   const loadRoster = useCallback(async () => {
     if (!course) return;
@@ -31,7 +25,6 @@ export default function CourseDetailsModal({ open, course, onClose, onChanged })
 
   useEffect(() => { if (open) loadRoster(); }, [open, loadRoster]);
 
-  // Announcements / videos / materials are per block, so the admin picks which block's content to manage.
   useEffect(() => {
     if (!open || !course) return;
     setContentBlock('');

@@ -3,7 +3,6 @@ import { Modal, Form, Input, Select, message } from 'antd';
 import api from '../../api';
 import { showError } from './adminUtils';
 
-/** Sends a notification to everyone, all students, all teachers, or one course. */
 export default function BroadcastModal({ open, courses, onClose }) {
   const [form] = Form.useForm();
   const [sending, setSending] = useState(false);

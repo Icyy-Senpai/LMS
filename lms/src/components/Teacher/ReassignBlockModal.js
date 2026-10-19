@@ -4,13 +4,6 @@ import api from '../../api';
 
 const { Text } = Typography;
 
-/**
- * Move a student to a different block (teachers + deans). A student is only ever in one block.
- * The person moving them chooses whether the student is also enrolled in the new block's subjects
- * (and removed from the old block's subjects), or whether course enrollment is left as it is.
- * `onSubmit(block, autoEnroll)` must return a promise; the modal closes when it resolves and shows the server's
- * error when it rejects.
- */
 export default function ReassignBlockModal({ open, personLabel, currentBlock, onClose, onSubmit }) {
   const [blocks, setBlocks] = useState([]);
   const [target, setTarget] = useState();

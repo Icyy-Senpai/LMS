@@ -24,14 +24,10 @@ const getCourses = async (req, res) => {
   }
 };
 
-// Announcements / videos / shared files of a course for ONE block:
-//   ?studentId=X -> that student's block (read from the database)
-//   ?block=B     -> block B (a teacher's block workspace)
 const getInstructorCourse = async (req, res) => {
   try {
     const block = req.query.studentId ? await studentBlock(req.query.studentId) : (typeof req.query.block === 'string' ? req.query.block.trim() : '');
     if (!block && req.query.studentId) {
-      // A student who is not in a block has no block content yet.
       return res.json({ success: true, content: { courseCode: req.params.courseCode, block: '', announcements: [], videos: [], materials: [] } });
     }
     if (!block) return res.status(400).json({ success: false, message: 'block is required.' });
@@ -43,13 +39,12 @@ const getInstructorCourse = async (req, res) => {
   }
 };
 
-// Saves one block's announcements / videos / shared files. Only the professor of the course in that block.
 const updateInstructorCourse = async (req, res) => {
   const { courseCode, block, videos, materials, announcements } = req.body;
   try {
     if (!block) return res.status(400).json({ success: false, message: 'block is required.' });
     await assertTeaches(req.teacher, courseCode, block);
-    await getBlockContent(courseCode, block); // make sure it exists (starts as a copy of the course-wide content)
+    await getBlockContent(courseCode, block);
     const set = {};
     if (Array.isArray(videos)) set.videos = videos;
     if (Array.isArray(materials)) set.materials = materials;
@@ -62,8 +57,6 @@ const updateInstructorCourse = async (req, res) => {
   }
 };
 
-// A teacher may only act on a course in the blocks they teach it in (Block.courseProfessors).
-// NOTE: like the rest of the non-admin API, this trusts the teacherId sent by the client (the app has no sessions/tokens yet).
 const loadOwnedCourse = async (teacherId, courseCode, blockCode) => {
   const fail = (status, message) => Object.assign(new Error(message), { status });
   if (!teacherId) throw fail(401, 'Teacher identification required.');
@@ -79,7 +72,6 @@ const sendErr = (res, err, fallback) => {
   res.status(500).json({ success: false, message: fallback });
 };
 
-// Students of one block registered in (and those who have completed) one of the teacher's courses.
 const getTeacherCourseRoster = async (req, res) => {
   try {
     const { courseCode } = req.params;

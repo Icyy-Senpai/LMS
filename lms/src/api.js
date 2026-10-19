@@ -4,9 +4,6 @@ const api = axios.create({
   baseURL: 'http://localhost:5000/api',
 });
 
-// Every /admin/* request identifies the logged-in admin (checked by backend/middleware/requireAdmin.js).
-// Every /staff/* and /dean/* request identifies the logged-in teacher; whether that teacher is a Dean is
-// checked against the database by backend/middleware/requireStaff.js, not against anything sent from here.
 api.interceptors.request.use((config) => {
   try {
     const saved = JSON.parse(localStorage.getItem('user'));
@@ -16,7 +13,7 @@ api.interceptors.request.use((config) => {
     if (saved && saved.accountType === 'Teacher' && saved.schoolId) {
       config.headers['x-teacher-id'] = saved.schoolId;
     }
-  } catch (e) { /* ignore corrupted storage */ }
+  } catch (e) { }
   return config;
 });
 

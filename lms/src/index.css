@@ -48,7 +48,6 @@ a:hover {
   color: var(--white);
 }
 
-/* Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -64,7 +63,6 @@ a:hover {
   background: #9e9e9e;
 }
 
-/* ---------- Plain HTML controls used across the app ---------- */
 button:not(.ant-btn) {
   font-family: inherit;
   transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.1s;
@@ -95,7 +93,6 @@ select:not([class*='ant-']):focus {
   box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.15);
 }
 
-/* ---------- Ant Design polish ---------- */
 .ant-layout-header {
   border-bottom: 1px solid var(--gray-border);
   box-shadow: none !important;
@@ -105,7 +102,6 @@ select:not([class*='ant-']):focus {
   border-right: 1px solid var(--gray-border) !important;
 }
 
-/* Thin red accent at the top of every page header */
 .ant-layout > .ant-layout-header {
   position: relative;
 }

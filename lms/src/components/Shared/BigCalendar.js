@@ -8,7 +8,6 @@ const { Text, Title } = Typography;
 const COLORS = ['red', 'black', 'gray'];
 const MAX_CHIPS = 3;
 
-/** Loads / saves the signed-in user's personal reminders (GET/POST/PUT/DELETE /api/reminders). */
 export function useReminders(ownerId) {
   const [reminders, setReminders] = useState([]);
 
@@ -18,16 +17,15 @@ export function useReminders(ownerId) {
       const res = await api.get(`/reminders/${encodeURIComponent(ownerId)}`);
       if (!res.data.success) return;
       setReminders(res.data.reminders);
-      // A heads-up for today's open reminders, once per day per browser session.
       const today = dayjs().format('YYYY-MM-DD');
       const due = res.data.reminders.filter(r => r.date === today && !r.done);
       const key = `remindersNotified:${ownerId}:${today}`;
       let seen = false;
-      try { seen = sessionStorage.getItem(key) === '1'; sessionStorage.setItem(key, '1'); } catch (e) { /* storage blocked */ }
+      try { seen = sessionStorage.getItem(key) === '1'; sessionStorage.setItem(key, '1'); } catch (e) { }
       if (due.length && !seen) {
         message.info({ content: `You have ${due.length} reminder${due.length > 1 ? 's' : ''} today: ${due.slice(0, 2).map(r => r.title).join(', ')}${due.length > 2 ? '…' : ''}`, duration: 6, icon: <BellOutlined style={{ color: '#e53935' }} /> });
       }
-    } catch (e) { /* non-critical */ }
+    } catch (e) { }
   }, [ownerId]);
   useEffect(() => { reload(); }, [reload]);
 
@@ -53,19 +51,13 @@ export function useReminders(ownerId) {
 
 const blankDraft = (date) => ({ title: '', date, time: '', note: '', color: 'red' });
 
-/**
- * The enlarged calendar: a full month with every task (by due date) and the user's own reminders in each day,
- * plus a side panel for the selected day where reminders are added, edited, ticked off or deleted.
- *   tasks: [{ id, title, courseCode, type, calendarFilter: 'YYYY-MM-DD', dateStr, isOverdue }]
- *   onOpenTask(task): optional, called when a task is clicked (e.g. open it in its course)
- */
 export default function BigCalendar({ open, onClose, tasks = [], remindersApi, initialDate, onOpenTask, title = 'My Calendar' }) {
   const { reminders, save, remove } = remindersApi;
   const [month, setMonth] = useState(() => dayjs());
   const [selected, setSelected] = useState(() => dayjs().format('YYYY-MM-DD'));
-  const [draft, setDraft] = useState(null);   // reminder being added / edited
+  const [draft, setDraft] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [show, setShow] = useState('all');    // all | tasks | reminders
+  const [show, setShow] = useState('all');
 
   useEffect(() => {
     if (!open) return;

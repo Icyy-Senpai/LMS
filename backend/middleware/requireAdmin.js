@@ -1,9 +1,5 @@
 const Admin = require('../models/Admin');
 
-// Lightweight guard for every /api/admin/* route.
-// The client sends the logged-in admin's _id in the `x-admin-id` header.
-// NOTE: the app has no tokens/sessions yet, so this only proves the id belongs to an
-// active Admin document. Swap this for JWT verification when real auth is added.
 module.exports = async function requireAdmin(req, res, next) {
   try {
     const adminId = req.header('x-admin-id');

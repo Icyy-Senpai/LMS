@@ -6,7 +6,6 @@ import BadgeFormModal from './BadgeFormModal';
 
 const { Text } = Typography;
 
-/** The "Badges" section of the course workspace: lists this course's badges for one block and lets the teacher / dean create more. */
 export default function BadgesSection({ course, block }) {
   const [badges, setBadges] = useState([]);
   const [loading, setLoading] = useState(false);

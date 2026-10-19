@@ -36,7 +36,6 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
   const [calendarDate, setCalendarDate] = useState(() => dayjs());
   const [selectedDateFilter, setSelectedDateFilter] = useState('');
 
-  // Enlarged calendar + personal reminders (components/Shared/BigCalendar.js)
   const remindersApi = useReminders(user.schoolId);
   const [bigCalOpen, setBigCalOpen] = useState(false);
   const [bigCalDate, setBigCalDate] = useState(null);
@@ -47,13 +46,12 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
   
   const [notifications, setNotifications] = useState([]);
 
-  // Badges awarded by teachers / deans. Re-read whenever the profile or badges tab is opened so new ones show up.
   const [myBadges, setMyBadges] = useState([]);
   useEffect(() => {
     if (activeTab !== 'profile' && activeTab !== 'grades') return;
     api.get(`/badges/student/${user.schoolId}`)
       .then(res => { if (res.data.success) setMyBadges(res.data.badges); })
-      .catch(() => { /* non-critical */ });
+      .catch(() => { });
   }, [activeTab, user.schoolId]);
   const badgeGrid = myBadges.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No badges earned yet." /> : (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
@@ -71,7 +69,7 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     </div>
   );
   const [mailboxItems, setMailboxItems] = useState([]);
-  const [taskToOpen, setTaskToOpen] = useState(null); // upcoming task the student clicked; drives the "go to this task?" prompt
+  const [taskToOpen, setTaskToOpen] = useState(null);
 
   const [form] = Form.useForm();
   const [isEditingBio, setIsEditingBio] = useState(false);
@@ -119,18 +117,15 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     fetchNotifications();
   }, [user.schoolId, activeTab]);
 
-  // The user object is a login-time snapshot. Re-read it when switching tabs so that changes made by
-  // others (e.g. a teacher/admin marking a course complete) show up without logging out and back in.
   useEffect(() => {
     let cancelled = false;
     api.get(`/user/${user.schoolId}`)
       .then(res => { if (!cancelled && res.data.success) onUpdateProfile({ ...user, ...res.data.user }); })
-      .catch(() => { /* keep the snapshot we already have */ });
+      .catch(() => { });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.schoolId, activeTab]);
 
-  // Registered (in-progress) courses live in enrolledCourseSubjects; finished ones are moved to completedCourses.
   const enrolledCodes = (user.enrolledCourseSubjects || []).map(e => e.code);
   const enrolledKey = enrolledCodes.join(',');
   const currentlyEnrolled = allCourses.filter(course => enrolledCodes.includes(course.code));
@@ -297,7 +292,6 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
     setCourseModalTasks((taskCategory === 'upcoming' ? upcomingOnlyTasks : overdueOnlyTasks).filter(t => t.courseCode === courseCode));
   };
 
-  // Student confirmed they want to jump to the task they clicked in "Upcoming Tasks"
   const openTask = () => {
     if (!taskToOpen) return;
     const course = currentlyEnrolled.find(c => c.code === taskToOpen.courseCode) || { code: taskToOpen.courseCode, name: taskToOpen.courseName };
@@ -406,7 +400,6 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
       <Modal title={`Available Courses: ${user.department}`} open={isCatalogModalVisible} onCancel={() => setIsCatalogModalVisible(false)} footer={[<Button key="close" type="primary" onClick={() => setIsCatalogModalVisible(false)}>Close</Button>]} width={750}>
         <List grid={{ gutter: 16, xs: 1, sm: 2 }} dataSource={programAvailableCourses} locale={{ emptyText: `No available courses found for ${user.department}.` }} renderItem={course => (
           <List.Item>
-            {/* Enrolled -> open the course; completed -> open it read-only; otherwise just listed */}
             <Card size="small" hoverable={enrolledCodes.includes(course.code) || completedCourses.some(c => c.code === course.code)}
               style={{ cursor: enrolledCodes.includes(course.code) || completedCourses.some(c => c.code === course.code) ? 'pointer' : 'default' }}
               onClick={() => {
@@ -475,7 +468,6 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
           <Space size="middle" align="center">
             <ThemeToggle />
             
-            {/* Mailbox Course Alerts Popover */}
             <Popover 
               placement="bottomRight" 
               title="Mailbox: Course Alerts" 
@@ -510,7 +502,6 @@ export default function StudentDashboard({ user, onLogout, onUpdateProfile }) {
               </Badge>
             </Popover>
 
-            {/* Social Notification Bell Popover */}
             <Popover 
               placement="bottomRight" 
               title={<div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Notifications</span><Button type="link" size="small" onClick={markNotificationsAsRead}>Mark all read</Button></div>}

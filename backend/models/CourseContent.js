@@ -9,17 +9,15 @@ const quizSchema = new mongoose.Schema({
   }]
 });
 
-// One document per course PER BLOCK: announcements, videos and shared files posted in one block are only seen by
-// that block. block '' is the course's original, course-wide document (see utils/courseContent.js).
 const contentSchema = new mongoose.Schema({
   courseCode: { type: String, required: true },
   block: { type: String, default: '' },
   videos: [{ title: { type: String }, url: { type: String } }],
   materials: [{ 
     title: { type: String }, 
-    fileUrl: { type: String },  // Keeps support for external links
-    fileName: { type: String }, // Stores the uploaded file's name
-    fileData: { type: String }  // Stores the Base64 file string
+    fileUrl: { type: String },
+    fileName: { type: String },
+    fileData: { type: String }
   }],
   quizzes: [quizSchema],
   announcements: [{ title: String, content: String, date: { type: Date, default: Date.now } }],

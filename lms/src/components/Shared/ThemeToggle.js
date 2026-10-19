@@ -2,7 +2,6 @@ import React from 'react';
 import { Tooltip } from 'antd';
 import { useThemeMode } from '../../themeMode';
 
-/** Animated light / dark switch: a sliding knob that morphs between a sun and a crescent moon. */
 export default function ThemeToggle({ className = '' }) {
   const { mode, toggle } = useThemeMode();
   const dark = mode === 'dark';

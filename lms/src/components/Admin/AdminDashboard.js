@@ -34,11 +34,9 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
   const [courses, setCourses] = useState([]);
   const [departments, setDepartments] = useState([]);
 
-  // Users tab filters
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
 
-  // Modal state
   const [userForm, setUserForm] = useState({ open: false, mode: 'create', user: null });
   const [resetUser, setResetUser] = useState(null);
   const [courseForm, setCourseForm] = useState({ open: false, course: null });
@@ -47,7 +45,7 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
   const [profileOpen, setProfileOpen] = useState(false);
 
   const fetchStats = useCallback(async () => {
-    try { const res = await api.get('/admin/stats'); if (res.data.success) setStats(res.data.stats); } catch (e) { /* non-critical */ }
+    try { const res = await api.get('/admin/stats'); if (res.data.success) setStats(res.data.stats); } catch (e) { }
   }, []);
 
   const fetchUsers = useCallback(async () => {
@@ -69,12 +67,10 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
     catch (err) { showError(err, 'Failed to load departments.'); }
   }, []);
 
-  // Users, courses and departments are needed together in several modals, so load them up front and keep them fresh
   const refreshAll = useCallback(() => { fetchStats(); fetchUsers(); fetchCourses(); fetchDepartments(); }, [fetchStats, fetchUsers, fetchCourses, fetchDepartments]);
   useEffect(() => { refreshAll(); }, [refreshAll]);
   useEffect(() => { if (activeTab === 'analytics') fetchStats(); }, [activeTab, fetchStats]);
 
-  // Department names the admin has created (legacy free-text values are auto-registered by the server)
   const programs = useMemo(() => departments.map(d => d.name), [departments]);
 
   const filteredUsers = useMemo(() => {
@@ -86,7 +82,6 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
     });
   }, [users, search, roleFilter]);
 
-  /* ---------------- handlers ---------------- */
   const handleDeleteUser = async (u) => {
     try {
       await api.delete(`/admin/users/${u.accountType}/${u._id}`);
@@ -111,7 +106,6 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
     } catch (err) { showError(err, 'Failed to delete course.'); }
   };
 
-  /* ---------------- table columns ---------------- */
   const userColumns = [
     { title: 'System ID', key: 'id', render: (_, r) => r.schoolId || r.username },
     { title: 'Full Name', key: 'name', render: (_, r) => <Text strong>{fullName(r)}</Text> },
@@ -241,8 +235,7 @@ export default function AdminDashboard({ user, onLogout, onUpdateProfile }) {
 
           {activeTab === 'departments' && <DepartmentsPanel departments={departments} loading={loading} onChanged={refreshAll} />}
 
-
-          {activeTab === 'moderation' && <ForumsPanel courses={courses} onChanged={fetchStats} />}
+{activeTab === 'moderation' && <ForumsPanel courses={courses} onChanged={fetchStats} />}
         </Content>
       </Layout>
 

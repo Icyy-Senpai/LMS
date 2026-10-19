@@ -1,6 +1,5 @@
 import { message } from 'antd';
 
-// Shows the server's error message when there is one
 export const showError = (err, fallback) => message.error(err?.response?.data?.message || fallback);
 
 export const fullName = (u) => (u ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : '');

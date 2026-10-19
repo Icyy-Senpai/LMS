@@ -14,16 +14,6 @@ const ICONS = {
   course: <ReadOutlined style={{ fontSize: 20, color: '#757575' }} />
 };
 
-/**
- * Mailbox / notifications inbox shared by the student and teacher dashboards.
- *
- * Props
- *  - user                   the logged-in user (needs schoolId)
- *  - notifications          documents from GET /notifications/:schoolId (admin broadcasts, messages, friend requests, course completion...)
- *  - onNotificationsChange  state setter for `notifications`; called with an updater function
- *  - courseAlerts           alerts the dashboard derives from the user's courses (announcements, new tasks, deadlines)
- *  - onOpenCourse(code, tab) optional; makes course alerts clickable (tab = course tab to open, if the alert has one)
- */
 export default function Mailbox({ user, notifications = [], onNotificationsChange, courseAlerts = [], onOpenCourse }) {
   const [filter, setFilter] = useState('all');
 
@@ -58,7 +48,7 @@ export default function Mailbox({ user, notifications = [], onNotificationsChang
     if (item.source === 'course') { if (onOpenCourse && item.courseCode) onOpenCourse(item.courseCode, item.tab); return; }
     if (!item.unread) return;
     onNotificationsChange?.(prev => prev.map(n => (n._id === item.id ? { ...n, isRead: true } : n)));
-    try { await api.post('/notifications/read', { userId: user.schoolId, notificationId: item.id }); } catch (e) { /* UI already updated; the next refresh will correct it */ }
+    try { await api.post('/notifications/read', { userId: user.schoolId, notificationId: item.id }); } catch (e) { }
   };
 
   return (

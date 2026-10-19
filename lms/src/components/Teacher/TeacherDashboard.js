@@ -17,10 +17,8 @@ import logoImage from '../../logo.png';
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
 
-// `isDean` is passed by DeanDashboard. A Dean has every teacher feature plus the Dean's Office tab.
 export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDean = false }) {
   const [activeTab, setActiveTab] = useState(isDean ? 'dean' : 'dashboard');
-  // Subject -> its blocks page (SubjectBlocks) -> one block's CourseWorkspace.
   const [selectedCourse, setSelectedCourseState] = useState(null);
   const [selectedBlock, setSelectedBlock] = useState(null);
   const setSelectedCourse = (course) => { setSelectedCourseState(course); setSelectedBlock(null); };
@@ -38,7 +36,6 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
   const [calendarDate, setCalendarDate] = useState(() => dayjs());
   const [selectedDateFilter, setSelectedDateFilter] = useState('');
 
-  // Enlarged calendar + personal reminders (components/Shared/BigCalendar.js)
   const remindersApi = useReminders(user.schoolId);
   const [bigCalOpen, setBigCalOpen] = useState(false);
   const [bigCalDate, setBigCalDate] = useState(null);
@@ -62,8 +59,6 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
     }
   }, [activeTab, selectedCourse, selectedBlock]);
 
-  // The user object is a login-time snapshot. Re-read it once so a change to isDean (promotion / demotion by an
-  // admin) is picked up; App swaps to the matching dashboard if isDean changed.
   useEffect(() => {
     let cancelled = false;
     api.get(`/user/${user.schoolId}`).then(res => {
@@ -73,12 +68,11 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
       if (roleChanged && typeof onUpdateProfile === 'function') {
         onUpdateProfile({ ...user, ...fresh, isDean: fresh.isDean === true });
       }
-    }).catch(() => { /* non-critical */ });
+    }).catch(() => { });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.schoolId]);
 
-  // My subjects, each with the blocks I teach it in (re-run by the Dean's Office when a Dean changes assignments)
   const fetchCourses = useCallback(async () => {
     try {
       const response = await api.get('/staff/my-subjects');
@@ -88,7 +82,6 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
   }, []);
   useEffect(() => { fetchCourses(); }, [fetchCourses]);
 
-  // Fetch Global Notifications
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
@@ -99,7 +92,6 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
     fetchNotifications();
   }, [user.schoolId, activeTab]);
 
-  // Fetch Assignments & Mailbox Alerts
   useEffect(() => {
     if (myCourses.length === 0) return;
     const fetchAssignmentsAndMailbox = async () => {
@@ -109,7 +101,6 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
 
       for (let course of myCourses) {
         try {
-          // Content is per block: read the announcements of every block I teach this course in.
           const blockCodes = (course.blocks || []).map(b => b.code);
           const [contentResList, assRes] = await Promise.all([
             Promise.all(blockCodes.map(b => api.get(`/instructor/course/${encodeURIComponent(course.code)}`, { params: { block: b } }))),
@@ -333,7 +324,6 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
           <Space size="middle" align="center">
             <ThemeToggle />
             
-            {/* Mailbox Course Alerts Popover */}
             <Popover 
               placement="bottomRight" 
               title="Mailbox: Course Alerts" 
@@ -368,7 +358,6 @@ export default function TeacherDashboard({ user, onLogout, onUpdateProfile, isDe
               </Badge>
             </Popover>
 
-            {/* Social Notification Bell Popover */}
             <Popover 
               placement="bottomRight" 
               title={<div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Notifications</span><Button type="link" size="small" onClick={markNotificationsAsRead}>Mark all read</Button></div>}

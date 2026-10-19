@@ -6,11 +6,10 @@ import { showError } from './adminUtils';
 
 const { Text, Paragraph } = Typography;
 
-/** Global forum moderation: add / edit / delete threads, and add / edit / delete replies. */
 export default function ForumsPanel({ courses, onChanged }) {
   const [forums, setForums] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState(null);   // null | {} (new) | thread
+  const [editing, setEditing] = useState(null);
   const [viewingId, setViewingId] = useState(null);
   const [editingReply, setEditingReply] = useState(null);
   const [form] = Form.useForm();
@@ -90,7 +89,6 @@ export default function ForumsPanel({ courses, onChanged }) {
     <Card title="Global Forum Moderation" extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openThreadModal({})}>New Thread</Button>}>
       <Table dataSource={forums} columns={columns} rowKey="_id" loading={loading} locale={{ emptyText: 'No forum threads exist.' }} />
 
-      {/* Add / edit thread */}
       <Modal title={editing && editing._id ? 'Edit Thread' : 'Create a new post'} open={Boolean(editing)} onCancel={() => setEditing(null)} footer={null} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={saveThread}>
           <Form.Item name="courseCode" label="Course" rules={[{ required: true }]}>
@@ -102,7 +100,6 @@ export default function ForumsPanel({ courses, onChanged }) {
         </Form>
       </Modal>
 
-      {/* Thread + replies */}
       <Modal title={viewing ? `r/${viewing.courseCode}: ${viewing.title}` : 'Thread'} open={Boolean(viewing)} onCancel={() => setViewingId(null)} footer={<Button type="primary" onClick={() => setViewingId(null)}>Close</Button>} width={750} destroyOnHidden>
         {viewing && (
           <>

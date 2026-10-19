@@ -9,9 +9,6 @@ const questionSchema = new mongoose.Schema({
 
 const assignmentSchema = new mongoose.Schema({
   courseCode: String,
-  // The block (section) this assignment / quiz belongs to: only that block's students see it and can submit, and
-  // only the professor of the course in that block (Block.courseProfessors) can grade or delete it.
-  // '' = created before assignments were block-based; those stay visible to every block of the course.
   block: { type: String, default: '' },
   title: String,
   instructions: String,
@@ -20,7 +17,6 @@ const assignmentSchema = new mongoose.Schema({
   maxGrade: Number,
   type: { type: String, default: 'Assignment' }, 
   questions: [questionSchema], 
-  // Updated to store actual file data
   attachedFiles: [{ 
     fileName: String, 
     fileData: String, 

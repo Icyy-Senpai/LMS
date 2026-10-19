@@ -5,12 +5,6 @@ import api from '../../api';
 
 const { Text } = Typography;
 
-/**
- * Dean: manage one block's subjects (Block.assignedSubjects) and who teaches each one there
- * (Block.courseProfessors = [{ subjectId, teacherId }]). `block` comes from GET /staff/blocks, so it is refreshed
- * by the parent (onChanged) after every change.
- */
-// `teachers` = the teachers this Dean may assign (their own department).
 export default function BlockManageModal({ open, block, courses = [], teachers = [], department, onClose, onChanged }) {
   const [newCourse, setNewCourse] = useState();
   const [enrollStudents, setEnrollStudents] = useState(true);

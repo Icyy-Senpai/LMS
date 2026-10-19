@@ -6,10 +6,6 @@ const greeting = () => {
   return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 };
 
-/**
- * The dark, animated welcome banner at the top of each dashboard (St. Dominic College of Asia red / black / gray).
- * `chips` = small stat pills shown under the subtitle: [{ label, value }].
- */
 export default function BrandHero({ name, role, subtitle, chips = [], extra }) {
   return (
     <section className="sdca-hero">

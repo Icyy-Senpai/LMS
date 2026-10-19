@@ -4,11 +4,6 @@ import api from '../../api';
 
 const { Text } = Typography;
 
-/**
- * Dean: put a teacher (of the Dean's own department) in a block, as the professor of one of that block's subjects.
- * Saved in Block.courseProfessors ({ subjectId, teacherId }). If the subject already has a professor there, they are
- * replaced (and notified).
- */
 export default function AssignTeacherBlockModal({ open, teacher, blocks = [], onClose, onAssigned }) {
   const [blockCode, setBlockCode] = useState();
   const [courseCode, setCourseCode] = useState();

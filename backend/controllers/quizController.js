@@ -1,4 +1,3 @@
-
 const { PDFParse } = require('pdf-parse');
 const mammoth = require('mammoth');
 const officeParser = require('officeparser');
@@ -10,16 +9,13 @@ require('dotenv').config();
 const OPENROUTER_URL =
   'https://openrouter.ai/api/v1/chat/completions';
 
-// Set this in backend/.env to an available free model.
 const OPENROUTER_MODEL =
   process.env.OPENROUTER_MODEL || 'openrouter/free';
 
-// Upper bound for one reply. The actual budget scales with the number of questions (see tokenBudget).
 const MAX_OUTPUT_TOKENS = Number(process.env.OPENROUTER_MAX_TOKENS) || 8192;
 const MAX_LESSON_CHARS = 60000;
 const MAX_ATTEMPTS = 2;
 
-// ~250 tokens per question plus headroom for models that "think" before answering.
 const tokenBudget = (questionCount) =>
   Math.min(MAX_OUTPUT_TOKENS, 2048 + questionCount * 250);
 
@@ -45,7 +41,6 @@ const askOpenRouter = async (prompt, maxTokens) => {
       ],
       max_tokens: maxTokens,
       temperature: 0.3,
-      // Keep reasoning models from spending the whole budget thinking, and keep their thoughts out of `content`.
       reasoning: { effort: 'low', exclude: true }
     })
   });
@@ -86,8 +81,6 @@ const askOpenRouter = async (prompt, maxTokens) => {
   return { content, truncated: choice?.finish_reason === 'length', model: data?.model };
 };
 
-// Pulls the question list out of whatever the model sent back: a bare array, an object wrapping one
-// ({"questions": [...]}), JSON inside Markdown fences, or JSON preceded by <think>...</think> reasoning.
 const extractJsonArray = (text) => {
   const cleaned = text
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -103,13 +96,11 @@ const extractJsonArray = (text) => {
     return null;
   };
 
-  // 1) The whole reply is JSON.
   try {
     const list = fromParsed(JSON.parse(cleaned));
     if (list) return list;
-  } catch { /* fall through */ }
+  } catch { }
 
-  // 2) JSON array or object surrounded by other text.
   for (const [open, close] of [['[', ']'], ['{', '}']]) {
     const first = cleaned.indexOf(open);
     const last = cleaned.lastIndexOf(close);
@@ -117,14 +108,12 @@ const extractJsonArray = (text) => {
     try {
       const list = fromParsed(JSON.parse(cleaned.slice(first, last + 1)));
       if (list) return list;
-    } catch { /* try the next shape */ }
+    } catch { }
   }
 
   throw new Error('AI response did not contain a JSON array.');
 };
 
-// Asks the model for the quiz, retrying once when the reply is cut off or is not usable JSON
-// (free models behind openrouter/free vary a lot from one request to the next).
 const generateQuizQuestions = async (prompt, expectedCount) => {
   let lastError;
 
@@ -144,7 +133,6 @@ const generateQuizQuestions = async (prompt, expectedCount) => {
       }
     } catch (error) {
       lastError = error;
-      // Credit / rate-limit / auth errors will not fix themselves on a retry.
       if (/^OpenRouter (has insufficient|rate limit|4\d\d)/.test(error.message)) break;
     }
   }
@@ -239,7 +227,6 @@ const generateQuizFromPDF = async (req, res) => {
       });
     }
 
-    // Limit input size to help control token usage.
     const limitedLessonText = lessonText.slice(0, MAX_LESSON_CHARS);
 
     const prompt = `

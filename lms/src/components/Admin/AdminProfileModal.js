@@ -3,7 +3,6 @@ import { Modal, Form, Input, Tabs, Row, Col, Button, message } from 'antd';
 import api from '../../api';
 import { showError } from './adminUtils';
 
-/** Admin's own settings (mirrors the Student / Faculty Settings modals) + change password. */
 export default function AdminProfileModal({ open, user, onClose, onUpdated }) {
   const [form] = Form.useForm();
   const [pwForm] = Form.useForm();

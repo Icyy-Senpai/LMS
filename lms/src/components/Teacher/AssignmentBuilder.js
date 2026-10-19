@@ -6,9 +6,6 @@ import api from '../../api';
 const { TextArea } = AntInput;
 const { Title, Text } = Typography;
 
-// ==========================================
-// AI QUIZ GENERATOR COMPONENT
-// ==========================================
 function AIQuizGenerator({ courseCode, block, onQuizSaved }) {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -165,10 +162,6 @@ function AIQuizGenerator({ courseCode, block, onQuizSaved }) {
   );
 }
 
-// ==========================================
-// MAIN ASSIGNMENT BUILDER COMPONENT
-// ==========================================
-// Everything created here belongs to `block` only (see Assignment.block).
 export default function AssignmentBuilder({ courseCode, block, assignments, setAssignments, onDataChange }) {
   const [assTitle, setAssTitle] = useState('');
   const [assInstructions, setAssInstructions] = useState('');
@@ -191,7 +184,6 @@ export default function AssignmentBuilder({ courseCode, block, assignments, setA
     
     const attachedFiles = [];
     for (let file of fileList) {
-        // FIX: Extract the actual File object regardless of how Ant Design wrapped it
         const actualFile = file.originFileObj || file; 
         
         const base64Data = await getBase64(actualFile);
@@ -256,9 +248,8 @@ export default function AssignmentBuilder({ courseCode, block, assignments, setA
         message.error('Files must be smaller than 5MB!');
         return Upload.LIST_IGNORE;
       }
-      // Store the raw File object directly
       setFileList(prev => [...prev, file]);
-      return false; // Prevent auto-uploading to a URL
+      return false;
     },
     fileList,
     multiple: true,

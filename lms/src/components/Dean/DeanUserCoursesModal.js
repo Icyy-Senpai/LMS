@@ -7,13 +7,9 @@ import { showError, fullName, getUserCourseCodes } from '../Admin/adminUtils';
 
 const { Text } = Typography;
 
-/**
- * Combined "view + assign + remove courses + mark completed" modal for a Student or Teacher.
- * Dean-only: this used to live in the Admin dashboard; the /dean/* endpoints enforce Teacher.isDean on the server.
- */
 export default function DeanUserCoursesModal({ open, user, courses, onClose, onChanged }) {
   const [codes, setCodes] = useState([]);
-  const [done, setDone] = useState([]); // completed-course records (students only)
+  const [done, setDone] = useState([]);
   const [target, setTarget] = useState();
   const [busy, setBusy] = useState(false);
 
@@ -40,7 +36,6 @@ export default function DeanUserCoursesModal({ open, user, courses, onClose, onC
     } catch (err) { showError(err, 'Failed to remove course.'); }
   };
 
-  // Marks a registered course as completed: it moves from the student's registered courses to their completed courses.
   const complete = async (courseCode) => {
     try {
       const res = await api.post('/dean/complete-course', { schoolId: user.schoolId, courseCode });

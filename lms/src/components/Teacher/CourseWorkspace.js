@@ -6,8 +6,6 @@ import ClassRoster from './ClassRoster';
 import BadgesSection from './BadgesSection';
 import api from '../../api';
 
-// The workspace for one course in ONE block. Roster, grading and badges only show that block's students;
-// announcements, videos, materials and assignments belong to the course and are shared by all of its blocks.
 export default function CourseWorkspace({ course, block, onBack, teacher }) {
   const [courseContent, setCourseContent] = useState(null);
   const [blockStudents, setBlockStudents] = useState([]);
@@ -83,7 +81,6 @@ export default function CourseWorkspace({ course, block, onBack, teacher }) {
     updateCourseData({ videos: courseContent.videos.filter((_, i) => i !== index) });
   };
 
-  // Helper to convert file to Base64
   const getBase64 = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -99,7 +96,6 @@ export default function CourseWorkspace({ course, block, onBack, teacher }) {
         return message.warning("Please provide either an external URL or upload a file.");
     }
     
-    // Prevent massive files from crashing MongoDB document limit
     if (matFile && matFile.size / 1024 / 1024 > 5) {
         return message.error("File must be smaller than 5MB.");
     }
@@ -123,7 +119,7 @@ export default function CourseWorkspace({ course, block, onBack, teacher }) {
         setMatTitle(''); 
         setMatUrl(''); 
         setMatFile(null);
-        document.getElementById('matFileInput').value = ''; // Reset file input
+        document.getElementById('matFileInput').value = '';
     });
   };
 
@@ -143,13 +139,10 @@ export default function CourseWorkspace({ course, block, onBack, teacher }) {
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-        {/* Class roster: mark registered students' course as completed */}
         {teacher && <ClassRoster course={course} block={block} teacher={teacher} onRosterChange={setBlockStudents} />}
 
-        {/* Badges: create badges for this course and (from the roster above) assign them to students */}
         {teacher && <BadgesSection course={course} block={block} />}
         
-        {/* Announcements Section */}
         <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>
           <h4>Announcements</h4>
           <form onSubmit={handleAddAnnouncement} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
@@ -167,7 +160,6 @@ export default function CourseWorkspace({ course, block, onBack, teacher }) {
           </ul>
         </div>
 
-        {/* Video Lessons Section */}
         <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>
           <h4>Video Lessons</h4>
           <form onSubmit={handleAddVideo} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
@@ -185,7 +177,6 @@ export default function CourseWorkspace({ course, block, onBack, teacher }) {
           </ul>
         </div>
 
-        {/* Reading Materials Section */}
         <div style={{ border: '1px solid #d9d9d9', padding: '15px', borderRadius: '8px', background: '#fff' }}>
           <h4>Reading Materials</h4>
           <p style={{ color: 'gray', fontSize: '12px', margin: '0 0 10px 0' }}>Provide an external link OR upload a file document (PDF, DOCX, PPTX).</p>
@@ -220,7 +211,6 @@ export default function CourseWorkspace({ course, block, onBack, teacher }) {
           </ul>
         </div>
 
-        {/* Assignment & Grading Builders */}
         <AssignmentBuilder
           courseCode={course.code}
           block={block} 

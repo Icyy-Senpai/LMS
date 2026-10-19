@@ -11,10 +11,6 @@ import AssignTeacherBlockModal from './AssignTeacherBlockModal';
 
 const { Text } = Typography;
 
-/**
- * The Dean-only tools: create blocks and register their subjects + professors, see each teacher's teaching load,
- * move students between blocks, and reassign users with courses.
- */
 export default function DeanPanel({ dean, onMyCoursesChanged }) {
   const [users, setUsers] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -22,7 +18,7 @@ export default function DeanPanel({ dean, onMyCoursesChanged }) {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [movingStudent, setMovingStudent] = useState(null);
-  const [managingBlock, setManagingBlock] = useState(null); // block code
+  const [managingBlock, setManagingBlock] = useState(null);
   const [assigningTeacher, setAssigningTeacher] = useState(null);
   const [coursesUser, setCoursesUser] = useState(null);
   const [blocks, setBlocks] = useState([]);
@@ -41,7 +37,6 @@ export default function DeanPanel({ dean, onMyCoursesChanged }) {
   useEffect(() => { load(); }, [load]);
 
   const teachers = useMemo(() => users.filter(u => u.accountType === 'Teacher'), [users]);
-  // Deans may only place teachers of their own department in blocks (the server enforces the same rule).
   const norm = (d) => String(d || '').trim().toLowerCase();
   const inMyDepartment = useCallback((t) => Boolean(norm(dean.department)) && norm(t.department) === norm(dean.department), [dean.department]);
   const myDeptTeachers = useMemo(() => teachers.filter(inMyDepartment), [teachers, inMyDepartment]);

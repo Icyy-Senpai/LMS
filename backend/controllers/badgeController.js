@@ -15,10 +15,8 @@ const sendErr = (res, err, fallback) => {
 };
 
 const teacherName = (t) => `Prof. ${t.lastName}, ${t.firstName}`;
-const MAX_IMAGE_CHARS = 1500000; // ~1.1 MB of image data once base64-decoded
+const MAX_IMAGE_CHARS = 1500000;
 
-// Badges belong to a course + block, and a teacher (or Dean, who is also a teacher) may only manage the badges of
-// the blocks they teach that course in (Block.courseProfessors).
 const ownedCourse = async (teacher, courseCode, blockCode) => (await assertTeaches(teacher, courseCode, blockCode)).course;
 
 const getCourseBadges = async (req, res) => {
@@ -59,7 +57,7 @@ const deleteBadge = async (req, res) => {
     const badge = await Badge.findById(req.params.id);
     if (!badge) throw fail(404, 'Badge not found.');
     await ownedCourse(req.teacher, badge.course, badge.block);
-    await badge.deleteOne(); // students lose it from their profile too: profiles read badges straight from this collection
+    await badge.deleteOne();
     res.json({ success: true, message: 'Badge deleted.' });
   } catch (err) { sendErr(res, err, 'Failed to delete the badge.'); }
 };
@@ -78,7 +76,6 @@ const assignBadge = async (req, res) => {
     if (!inCourse) throw fail(400, 'That student is not in this course.');
     if (student.block !== badge.block) throw fail(400, `This badge is for block ${badge.block}, but the student is in block ${student.block || '(none)'}.`);
 
-    // One atomic update guarded on "not already awarded", so a double click can never award it twice.
     const result = await Badge.updateOne(
       { _id: badge._id, 'studentsWithBadge.schoolId': { $ne: studentId } },
       { $push: { studentsWithBadge: {
@@ -97,7 +94,6 @@ const assignBadge = async (req, res) => {
   } catch (err) { sendErr(res, err, 'Failed to assign the badge.'); }
 };
 
-// The badges one student has earned (shown in their profile).
 const getStudentBadges = async (req, res) => {
   try {
     const { schoolId } = req.params;

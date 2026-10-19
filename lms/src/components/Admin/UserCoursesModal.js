@@ -7,10 +7,9 @@ import { showError, fullName, getUserCourseCodes } from './adminUtils';
 
 const { Text } = Typography;
 
-/** Combined "view + assign + remove courses" modal for a Student or Teacher. */
 export default function UserCoursesModal({ open, user, courses, onClose, onChanged }) {
   const [codes, setCodes] = useState([]);
-  const [done, setDone] = useState([]); // completed-course records (students only)
+  const [done, setDone] = useState([]);
   const [target, setTarget] = useState();
   const [busy, setBusy] = useState(false);
 
@@ -37,7 +36,6 @@ export default function UserCoursesModal({ open, user, courses, onClose, onChang
     } catch (err) { showError(err, 'Failed to remove course.'); }
   };
 
-  // Marks a registered course as completed: it moves from the student's registered courses to their completed courses.
   const complete = async (courseCode) => {
     try {
       const res = await api.post('/admin/complete-course', { schoolId: user.schoolId, courseCode });

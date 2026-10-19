@@ -13,7 +13,6 @@ const studentSchema = new mongoose.Schema({
 
   gender: { type: String, required: true },
   religion: { type: String, required: true },
-  // Changeable Data
   mobileNum: { type: Number, required: true },
   teleNum: { type: Number, required: true },
   personalEmail: { type: String, required: true },
@@ -31,30 +30,23 @@ const studentSchema = new mongoose.Schema({
   permanentBrgy: { type: String, required: true },
   permanentPostal: { type: String, required: true },
 
-  // School Data
   schoolId: { type: String, required: true, unique: true },
   yearLevel: { type: Number, required: true },
   schoolEmail: { type: String, required: true, unique: true },
   department: { type: String, required: true },
-  // Code of the ONE block (section) this student is in; mirrors Block.studentsRegistered. Change it only through
-  // utils/blocks.js assignStudentToBlock so both sides stay in step.
   block: { type: String, default: '' },
   password: { type: String, required: true},
   photoUrl: { type: String, default: '' },
   status: { type: String, enum: ['Active', 'Suspended'], default: 'Active' },
   accountType : {type: String, required: true, default: 'Student'},
 
-  // Profile Data
   bio: { type: String, default: '' },
 
-  // Personal Data
   points: { type: Number, default: 0 },
   badges: [{ type: String }],
   enrolledCourseSubjects: [{
     code: { type: String },
   }],
-  // Courses a teacher/dean has marked as finished. A course moves here from enrolledCourseSubjects.
-  // name/instructor are snapshots so the record still reads correctly if the course is later renamed or deleted.
   completedCourses: [{
     code: { type: String, required: true },
     name: { type: String, default: '' },

@@ -2,8 +2,6 @@ const Reminder = require('../models/Reminder');
 const Student = require('../models/Student');
 const Teacher = require('../models/Teacher');
 
-// NOTE: like the rest of the non-admin API there are no sessions yet, so the owner is the schoolId the client
-// sends. Every query is scoped to that owner, so one user's id never reaches another user's reminders.
 const fail = (status, message) => Object.assign(new Error(message), { status });
 const sendErr = (res, err, fallback) => {
   if (err && err.status) return res.status(err.status).json({ success: false, message: err.message });

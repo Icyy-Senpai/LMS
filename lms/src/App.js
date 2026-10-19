@@ -39,7 +39,7 @@ export default function App() {
       if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
       idleTimeoutRef.current = setTimeout(() => {
         setShowIdlePrompt(true);
-      }, 900000); // 15 minutes
+      }, 900000);
     };
 
     const events = ['mousemove', 'keydown', 'mousedown', 'touchstart'];
@@ -75,7 +75,6 @@ export default function App() {
       ) : user.accountType === 'Student' ? (
         <StudentDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : user.accountType === 'Teacher' && user.isDean === true ? (
-        // A Teacher account with isDean: true logs in to the Dean's dashboard; anything else is a plain teacher.
         <DeanDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />
       ) : user.accountType === 'Teacher' ? (
         <TeacherDashboard user={user} onLogout={handleLogout} onUpdateProfile={handleUserUpdate} />

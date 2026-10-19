@@ -4,22 +4,17 @@ const Admin = require('../models/Admin');
 const Block = require('../models/Block');
 
 const login = async (req, res) => {
-  // FIX: Extract 'email' from req.body instead of 'username'
   const { email, password } = req.body; 
   try {
     let user = null;
 
-    // 1. Try finding a Student using schoolEmail
     user = await Student.findOne({ schoolEmail: email, password });
     
-    // 2. If not a student, try finding a Teacher using schoolEmail
     if (!user) {
       user = await Teacher.findOne({ schoolEmail: email, password });
     }
     
-    // 3. If neither, try finding an Admin
     if (!user) {
-      // Admins might still use a standard username or an email, so we check both
       const adminCheck = await Admin.findOne({ 
         $or: [{ email: email }, { username: email }], 
         password 
@@ -58,8 +53,6 @@ const getAdminUsers = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   const { schoolId, photoUrl, mobileNum, teleNum, personalEmail, bio, ...rest } = req.body;
-  // Self-service profile edits must never touch privileged fields. (isDean would otherwise let any teacher
-  // promote themselves to Dean, and block is changed only through the teacher/dean reassign endpoints.)
   ['isDean', 'block', 'accountType', 'status', 'password', 'completedCourses'].forEach(k => delete rest[k]);
   try {
     const updateData = { photoUrl, mobileNum, teleNum, personalEmail, bio, ...rest };
@@ -91,8 +84,6 @@ const updateTodos = async (req, res) => {
   }
 };
 
-// Fresh copy of the logged-in user (the dashboard keeps a login-time snapshot in localStorage, which
-// goes stale when e.g. a teacher marks one of the student's courses complete).
 const getUser = async (req, res) => {
   try {
     const { schoolId } = req.params;

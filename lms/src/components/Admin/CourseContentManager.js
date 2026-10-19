@@ -12,15 +12,11 @@ const KINDS = {
   materials: { label: 'Material', fields: [{ name: 'title', label: 'Title', required: true }, { name: 'fileUrl', label: 'Link (optional)' }] }
 };
 
-/**
- * Add / edit / delete announcements, videos or material links of one course in one block (content is per block).
- * block '' = the course-wide content from before content was per block (new blocks start with a copy of it).
- */
 export default function CourseContentManager({ courseCode, kind, block = '' }) {
   const cfg = KINDS[kind];
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState(null); // null | {} (new) | item
+  const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {

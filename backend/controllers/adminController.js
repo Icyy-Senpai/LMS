@@ -29,12 +29,8 @@ const fail = (res, err, fallback, code = 500) => {
 const modelFor = (type) => (type === 'Student' ? Student : type === 'Teacher' ? Teacher : type === 'Admin' ? Admin : null);
 const pick = (obj, keys) => keys.reduce((acc, k) => (obj[k] !== undefined ? { ...acc, [k]: obj[k] } : acc), {});
 
-/* ------------------------------------------------------------------ */
-/*  DASHBOARD                                                          */
-/* ------------------------------------------------------------------ */
 const getSystemStats = async (req, res) => {
   try {
-    // No assignment / quiz / submission figures: grading is for Teachers and Deans only, not admins.
     const [students, teachers, admins, courses, forums, sSusp, tSusp] = await Promise.all([
       Student.countDocuments(), Teacher.countDocuments(), Admin.countDocuments(),
       Course.countDocuments(), Forum.countDocuments(),
@@ -50,9 +46,6 @@ const getSystemStats = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to load stats.'); }
 };
 
-/* ------------------------------------------------------------------ */
-/*  USERS  (add / edit / suspend / reset password / delete)            */
-/* ------------------------------------------------------------------ */
 const getAllUsers = async (req, res) => {
   try {
     const [students, teachers, admins] = await Promise.all([
@@ -69,7 +62,6 @@ const getAllUsers = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to load users.'); }
 };
 
-// Fields the admin may set on Student / Teacher records.
 const COMMON_FIELDS = [
   'lastName', 'firstName', 'middleName', 'middleInitial', 'suffix', 'bithDate', 'countryOfBirth', 'birthPlace',
   'civilStatus', 'gender', 'religion', 'mobileNum', 'teleNum', 'personalEmail',
@@ -77,19 +69,12 @@ const COMMON_FIELDS = [
   'permanentAddress', 'permanentProvince', 'permanentCmun', 'permanentHouseNum', 'permanentBrgy', 'permanentPostal',
   'schoolEmail', 'department', 'bio'
 ];
-// A student's block is NOT written directly: it goes through utils/blocks.js assignStudentToBlock so the Block
-// document stays in step (see createUser / updateUser).
 const STUDENT_ONLY = ['yearLevel'];
-// Teacher-only: isDean decides whether the account logs in to the Teacher or the Dean's dashboard.
-// (Teachers are placed in blocks per subject by a Dean, see Block.courseProfessors.)
 const TEACHER_ONLY = ['isDean'];
 const allowedFor = (accountType) => accountType === 'Student' ? [...COMMON_FIELDS, ...STUDENT_ONLY] : [...COMMON_FIELDS, ...TEACHER_ONLY];
 
-// isDean only accepts the real booleans true / false (not 'true', 1, 'yes'...). Returns an error message or null.
 const isDeanError = (body) => (body.isDean !== undefined && typeof body.isDean !== 'boolean') ? 'isDean only accepts true or false.' : null;
 
-// The Student/Teacher schemas mark many profile fields as required. The admin form only collects the
-// essentials, so anything left blank is filled with a neutral placeholder the user can update in Settings.
 const withDefaults = (data) => {
   const d = { ...data };
   ['middleName', 'countryOfBirth', 'birthPlace', 'civilStatus', 'gender', 'religion',
@@ -123,7 +108,6 @@ const createUser = async (req, res) => {
 
     const data = withDefaults(pick(req.body, allowedFor(accountType)));
 
-    // Students may be placed in a block straight away. Check it exists and has room before creating the account.
     const blockCode = accountType === 'Student' && typeof req.body.block === 'string' ? req.body.block.trim() : '';
     if (blockCode) {
       const target = await findBlock(blockCode);
@@ -132,8 +116,6 @@ const createUser = async (req, res) => {
       }
     }
 
-    // The School ID is always assigned by the server (next number after the highest existing ID);
-    // any schoolId sent by the client is ignored. Retry if another admin grabbed the same number first.
     let created;
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
@@ -146,7 +128,6 @@ const createUser = async (req, res) => {
       }
     }
     if (blockCode) {
-      // autoEnrollBlockSubjects: also enrol the student in every subject registered to the block.
       created = (await assignStudentToBlock({ studentSchoolId: created.schoolId, blockCode, autoEnroll: req.body.autoEnrollBlockSubjects === true })).student;
     }
     const out = created.toObject(); delete out.password;
@@ -154,7 +135,6 @@ const createUser = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to create user.'); }
 };
 
-// Lets the "Add User" form show the ID that will be assigned before the admin submits.
 const previewNextSchoolId = async (req, res) => {
   try {
     const { accountType } = req.query;
@@ -176,8 +156,6 @@ const updateUser = async (req, res) => {
       const Model = modelFor(accountType);
       if (!Model) return res.status(400).json({ success: false, message: 'Invalid account type.' });
       if (accountType === 'Teacher' && isDeanError(req.body)) return res.status(400).json({ success: false, message: isDeanError(req.body) });
-      // schoolId is intentionally NOT editable: submissions, forum posts, friendships and
-      // enrolments all reference it.
       const data = pick(req.body, allowedFor(accountType));
       if (data.middleName && data.middleName !== 'N/A' && data.middleInitial === undefined) data.middleInitial = data.middleName.trim()[0].toUpperCase();
       updated = await Model.findByIdAndUpdate(id, data, { new: true, runValidators: true });
@@ -248,10 +226,6 @@ const deleteUser = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to delete user.'); }
 };
 
-/* ------------------------------------------------------------------ */
-/*  COURSES  (add / edit / delete + instructor + roster)               */
-/* ------------------------------------------------------------------ */
-// Keeps Course.instructor*, and every Teacher.courseSubjectHeld, consistent in one place.
 const setCourseInstructor = async (courseCode, teacherSchoolId) => {
   const course = await Course.findOne({ code: courseCode });
   if (!course) return;
@@ -285,7 +259,6 @@ const getAllCourses = async (req, res) => {
 
 const createCourse = async (req, res) => {
   try {
-    // Instructors are assigned by Deans (see staffRoutes), so any instructorID sent here is ignored.
     const { code, name, targetProgram, targetYear, color } = req.body;
     const course = await new Course({ code: (code || '').trim(), name, targetProgram, targetYear, color }).save();
     await new CourseContent({ courseCode: course.code }).save();
@@ -294,7 +267,6 @@ const createCourse = async (req, res) => {
 };
 
 const updateCourse = async (req, res) => {
-  // Instructors are assigned by Deans, so any instructorID sent here is ignored.
   const { code, name, targetProgram, targetYear, color } = req.body;
   try {
     const updated = await Course.findOneAndUpdate({ code }, { name, targetProgram, targetYear, color }, { new: true, runValidators: true });
@@ -308,11 +280,10 @@ const deleteCourse = async (req, res) => {
     const { code } = req.params;
     const removed = await Course.findOneAndDelete({ code });
     if (removed) await Block.updateMany({}, { $pull: { assignedSubjects: { subjectId: removed._id }, courseProfessors: { subjectId: removed._id } } });
-    await CourseContent.deleteMany({ courseCode: code }); // every block's copy
+    await CourseContent.deleteMany({ courseCode: code });
     await Forum.deleteMany({ courseCode: code });
     await Submission.deleteMany({ courseCode: code });
     await Assignment.deleteMany({ courseCode: code });
-    // Remove the dangling course code from every enrolled student / assigned teacher
     await Student.updateMany({}, { $pull: { enrolledCourseSubjects: { code } } });
     await Teacher.updateMany({}, { $pull: { courseSubjectHeld: { code } } });
     res.json({ success: true, message: 'Course and all associated data deleted.' });
@@ -330,8 +301,6 @@ const getCourseRoster = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to load roster.'); }
 };
 
-// Enrol / unenrol / (re)assign instructor.
-// NOT routed under /api/admin any more: these are Dean-only (see routes/staffRoutes.js), which re-uses them.
 const assignUserCourse = async (req, res) => {
   const { schoolId, accountType, courseCode } = req.body;
   try {
@@ -373,23 +342,17 @@ const removeUserCourse = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to remove course.'); }
 };
 
-/* ------------------------------------------------------------------ */
-/*  COURSE CONTENT  (announcements / videos / materials)               */
-/* ------------------------------------------------------------------ */
 const getCourseContent = async (req, res) => {
   try {
     const { code } = req.params;
     const content = (await getBlockContent(code, contentBlock(req))).toObject();
-    // Strip base64 blobs so the payload stays small
     content.materials = (content.materials || []).map(m => ({ _id: m._id, title: m.title, fileUrl: m.fileUrl, fileName: m.fileName, hasFile: !!m.fileData }));
     res.json({ success: true, content });
   } catch (err) { fail(res, err, 'Failed to load course content.'); }
 };
 
-// Content is per block: ?block=CODE picks the block, no block = the course-wide (pre-block) document.
 const contentBlock = (req) => (typeof req.query.block === 'string' ? req.query.block.trim() : '');
 
-// Add / edit / delete a single item in one of the content arrays.
 const ARRAYS = { announcements: ['title', 'content'], videos: ['title', 'url'], materials: ['title', 'fileUrl'] };
 
 const addContentItem = async (req, res) => {
@@ -425,9 +388,6 @@ const deleteContentItem = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to remove item.'); }
 };
 
-/* ------------------------------------------------------------------ */
-/*  FORUMS  (add / edit / delete threads + replies)                    */
-/* ------------------------------------------------------------------ */
 const getAllForums = async (req, res) => {
   try {
     res.json({ success: true, forums: await Forum.find({}).sort({ createdAt: -1 }) });
@@ -490,13 +450,8 @@ const deleteForumReply = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to delete reply.'); }
 };
 
-/* ------------------------------------------------------------------ */
-/*  DEPARTMENTS                                                        */
-/* ------------------------------------------------------------------ */
 const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// Departments used to exist only as free-text strings on users and courses. Register any such value
-// that has no Department document yet, so existing data shows up (and is editable) right away.
 const syncLegacyDepartments = async () => {
   const [sDeps, tDeps, cDeps] = await Promise.all([
     Student.distinct('department'), Teacher.distinct('department'), Course.distinct('targetProgram')
@@ -552,7 +507,6 @@ const updateDepartment = async (req, res) => {
     if (req.body.description !== undefined) dep.description = req.body.description;
     await dep.save();
 
-    // Users and courses reference the department by name, so keep them in step with a rename.
     if (name !== oldName) {
       await Promise.all([
         Student.updateMany({ department: oldName }, { department: name }),
@@ -581,9 +535,6 @@ const deleteDepartment = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to delete department.'); }
 };
 
-/* ------------------------------------------------------------------ */
-/*  BROADCAST NOTIFICATIONS                                            */
-/* ------------------------------------------------------------------ */
 const broadcast = async (req, res) => {
   const { title, message, audience, courseCode } = req.body;
   try {
@@ -604,9 +555,6 @@ const broadcast = async (req, res) => {
   } catch (err) { fail(res, err, 'Failed to send notification.'); }
 };
 
-/* ------------------------------------------------------------------ */
-/*  ADMIN'S OWN PROFILE                                                */
-/* ------------------------------------------------------------------ */
 const updateOwnProfile = async (req, res) => {
   try {
     const data = pick(req.body, ['firstName', 'lastName', 'email', 'phone', 'organization', 'photoUrl']);
@@ -628,7 +576,7 @@ const changeOwnPassword = async (req, res) => {
 };
 
 module.exports = {
-  setCourseInstructor, // re-used by the Dean's claim / release endpoints (staffController)
+  setCourseInstructor,
   getSystemStats,
   getAllUsers, createUser, previewNextSchoolId, updateUser, setUserStatus, resetUserPassword, deleteUser,
   getDepartments, createDepartment, updateDepartment, deleteDepartment,

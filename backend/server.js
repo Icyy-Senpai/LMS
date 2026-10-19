@@ -14,6 +14,7 @@ const badgeRoutes = require('./routes/badgeRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const { migrateBlocks } = require('./utils/blocks');
 const { migrateCourseContent } = require('./utils/courseContent');
+const { dropStaleIndexes } = require('./utils/staleIndexes');
 
 const app = express();
 
@@ -21,13 +22,13 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
 mongoose.connect('mongodb://127.0.0.1:27017/lms_project')
-  .then(() => { console.log('Connected to MongoDB'); return Promise.all([migrateBlocks(), migrateCourseContent()]); })
+  .then(() => { console.log('Connected to MongoDB'); return Promise.all([migrateBlocks(), migrateCourseContent(), dropStaleIndexes()]); })
   .catch(err => console.error('MongoDB connection error:', err));
 
-app.use('/api', adminRoutes); // mounted first; guarded by requireAdmin inside the router
-app.use('/api', staffRoutes); // /staff/* (teachers + deans) and /dean/* (deans only); guarded in the router
-app.use('/api', reminderRoutes); // personal calendar reminders
-app.use('/api', badgeRoutes); // badges: teacher/dean create + assign, student profile read
+app.use('/api', adminRoutes);
+app.use('/api', staffRoutes);
+app.use('/api', reminderRoutes);
+app.use('/api', badgeRoutes);
 app.use('/api', userRoutes);
 app.use('/api', courseRoutes);
 app.use('/api', forumRoutes);

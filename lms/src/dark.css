@@ -1,10 +1,3 @@
-/* =========================================================================
-   Dark mode (html[data-theme='dark'], set by themeMode.js)
-   Ant Design components follow darkTheme in theme.js; this file covers the rest:
-   the brand pieces in App.css, plain HTML, and the many inline light colours in components.
-   ========================================================================= */
-
-/* ---------- Light / dark switch (components/Shared/ThemeToggle.js) ---------- */
 .sdca-theme-toggle {
   position: relative;
   width: 58px;
@@ -76,11 +69,9 @@
 
 .login-theme-toggle { position: absolute !important; top: 22px; right: 22px; z-index: 5; }
 
-/* the circular reveal when switching (themeMode.js) */
 ::view-transition-old(root),
 ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
 
-/* ---------- Base ---------- */
 html[data-theme='dark'] {
   --charcoal: #ececec;
   --gray-dark: #cfcfcf;
@@ -97,7 +88,6 @@ html[data-theme='dark'] ::-webkit-scrollbar-thumb { background: #3a3a3a; }
 html[data-theme='dark'] ::-webkit-scrollbar-thumb:hover { background: #c62828; }
 html[data-theme='dark'] a { color: #ff6b66; }
 
-/* plain HTML controls (course workspace, forms) */
 html[data-theme='dark'] input:not([type='color']):not([type='checkbox']):not([type='radio']):not([class*='ant-']),
 html[data-theme='dark'] textarea:not([class*='ant-']),
 html[data-theme='dark'] select:not([class*='ant-']) {
@@ -111,7 +101,6 @@ html[data-theme='dark'] fieldset { border-color: #333; }
 html[data-theme='dark'] h1, html[data-theme='dark'] h2, html[data-theme='dark'] h3,
 html[data-theme='dark'] h4, html[data-theme='dark'] h5 { color: #ececec; }
 
-/* ---------- App shell ---------- */
 html[data-theme='dark'] .ant-layout > .ant-layout-header {
   background: rgba(14, 14, 14, 0.78) !important;
   border-bottom-color: #1f1f1f;
@@ -124,7 +113,6 @@ html[data-theme='dark'] .sdca-hero {
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(229, 57, 53, 0.12);
 }
 
-/* ---------- Cards, tables, modals ---------- */
 html[data-theme='dark'] .ant-card { border-color: #262626; }
 html[data-theme='dark'] .ant-card-hoverable::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent); }
 html[data-theme='dark'] .ant-card-hoverable:hover {
@@ -136,7 +124,6 @@ html[data-theme='dark'] .ant-table-tbody > tr:hover > td { background: #2a1313 !
 html[data-theme='dark'] .ant-modal-content { box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px #262626 !important; }
 html[data-theme='dark'] .ant-statistic-content { color: #ececec; }
 
-/* ---------- Login ---------- */
 html[data-theme='dark'] .login-card { background: #121212; }
 html[data-theme='dark'] .login-card-banner h2 { color: #f5f5f5; }
 html[data-theme='dark'] .login-input { background: #1b1b1b; border-color: #2e2e2e; }
@@ -144,13 +131,7 @@ html[data-theme='dark'] .login-input:focus-within { background: #1f1f1f; border-
 html[data-theme='dark'] .login-form .login-input input { color: #ececec; background: transparent !important; }
 html[data-theme='dark'] .login-card-foot { color: #555; }
 html[data-theme='dark'] .login-shell { border-color: rgba(229, 57, 53, 0.18); }
-/* light mode keeps the dramatic dark backdrop too, only the form card changes */
 
-/* ---------- Inline light colours used across components ----------
-   React writes inline styles in the browser's normal form (e.g. '#fff' becomes 'rgb(255, 255, 255)'),
-   so these attribute selectors remap the common light values without editing every component. */
-
-/* white / near-white surfaces */
 html[data-theme='dark'] [style*='background: rgb(255, 255, 255)'],
 html[data-theme='dark'] [style*='background-color: rgb(255, 255, 255)'],
 html[data-theme='dark'] [style*='background: white'],
@@ -161,7 +142,6 @@ html[data-theme='dark'] [style*='background-color: rgb(250, 250, 250)'],
 html[data-theme='dark'] [style*='background: rgb(245, 245, 245)'],
 html[data-theme='dark'] [style*='background-color: rgb(245, 245, 245)'] { background: #1d1d1d !important; }
 
-/* pink / red highlights */
 html[data-theme='dark'] [style*='background: rgb(255, 245, 245)'],
 html[data-theme='dark'] [style*='background-color: rgb(255, 245, 245)'],
 html[data-theme='dark'] [style*='background: rgb(255, 241, 240)'],
@@ -170,12 +150,10 @@ html[data-theme='dark'] [style*='background: rgb(253, 236, 234)'],
 html[data-theme='dark'] [style*='background-color: rgb(253, 236, 234)'],
 html[data-theme='dark'] [style*='background: rgb(255, 247, 246)'] { background: rgba(229, 57, 53, 0.14) !important; }
 
-/* green / blue tints */
 html[data-theme='dark'] [style*='background: rgb(246, 255, 237)'],
 html[data-theme='dark'] [style*='background-color: rgb(246, 255, 237)'] { background: rgba(82, 196, 26, 0.12) !important; }
 html[data-theme='dark'] [style*='background: rgb(230, 244, 255)'] { background: rgba(22, 119, 255, 0.18) !important; }
 
-/* light borders */
 html[data-theme='dark'] [style*='solid rgb(217, 217, 217)'],
 html[data-theme='dark'] [style*='solid rgb(224, 224, 224)'],
 html[data-theme='dark'] [style*='solid rgb(232, 232, 232)'],
@@ -185,7 +163,6 @@ html[data-theme='dark'] [style*='solid rgb(255, 163, 158)'],
 html[data-theme='dark'] [style*='solid rgb(245, 194, 192)'] { border-color: rgba(229, 57, 53, 0.45) !important; }
 html[data-theme='dark'] [style*='solid rgb(183, 235, 143)'] { border-color: rgba(82, 196, 26, 0.45) !important; }
 
-/* dark text that would vanish on dark surfaces ("color:" at the start or after ';' so background-color is not matched) */
 html[data-theme='dark'] [style^='color: black'], html[data-theme='dark'] [style*='; color: black'],
 html[data-theme='dark'] [style^='color: rgb(0, 0, 0)'], html[data-theme='dark'] [style*='; color: rgb(0, 0, 0)'],
 html[data-theme='dark'] [style^='color: rgb(33, 33, 33)'], html[data-theme='dark'] [style*='; color: rgb(33, 33, 33)'] { color: #ececec !important; }
@@ -193,10 +170,8 @@ html[data-theme='dark'] [style^='color: rgb(66, 66, 66)'], html[data-theme='dark
 html[data-theme='dark'] [style^='color: rgb(89, 89, 89)'], html[data-theme='dark'] [style*='; color: rgb(89, 89, 89)'] { color: #c4c4c4 !important; }
 html[data-theme='dark'] [style^='color: rgb(117, 117, 117)'], html[data-theme='dark'] [style*='; color: rgb(117, 117, 117)'],
 html[data-theme='dark'] [style^='color: gray'], html[data-theme='dark'] [style*='; color: gray'] { color: #9e9e9e !important; }
-/* crimson text gets a touch brighter so it keeps contrast */
 html[data-theme='dark'] [style^='color: rgb(198, 40, 40)'], html[data-theme='dark'] [style*='; color: rgb(198, 40, 40)'] { color: #ff5f57 !important; }
 
-/* ---------- Enlarged calendar ---------- */
 html[data-theme='dark'] .sdca-bigcal-side { background: linear-gradient(180deg, #181818, #121212); border-color: #262626; }
 html[data-theme='dark'] .sdca-bigcal-item,
 html[data-theme='dark'] .sdca-bigcal-form { background: #1d1d1d; border-color: #2a2a2a; }

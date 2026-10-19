@@ -1,10 +1,5 @@
 const Teacher = require('../models/Teacher');
 
-// Guards for the teacher / dean endpoints (/api/staff/* and /api/dean/*).
-// The client sends the logged-in teacher's schoolId in the `x-teacher-id` header (see lms/src/api.js).
-// The Dean check is made against the database (Teacher.isDean), never against anything the client claims.
-// NOTE: like the rest of the non-admin API there are no tokens/sessions yet, so this only proves the id belongs
-// to an active Teacher account. Swap for JWT verification when real auth is added.
 const load = async (req, res, next, { dean }) => {
   try {
     const schoolId = req.header('x-teacher-id');
@@ -23,7 +18,7 @@ const load = async (req, res, next, { dean }) => {
   }
 };
 
-const requireTeacher = (req, res, next) => load(req, res, next, { dean: false }); // Teachers and Deans
-const requireDean = (req, res, next) => load(req, res, next, { dean: true });     // Deans only
+const requireTeacher = (req, res, next) => load(req, res, next, { dean: false });
+const requireDean = (req, res, next) => load(req, res, next, { dean: true });
 
 module.exports = { requireTeacher, requireDean };

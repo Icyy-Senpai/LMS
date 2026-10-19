@@ -6,9 +6,6 @@ import logoImage from '../logo.png';
 import BrandGlobe from './Shared/BrandGlobe';
 import ThemeToggle from './Shared/ThemeToggle';
 
-// One sign-in form for everyone. Students, teachers and deans use their school email; an admin can type their
-// admin username (or email) here too. The backend (userController.login) finds the matching account and its
-// accountType decides which dashboard App.js opens, so admins land on the admin page.
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,7 +44,6 @@ export default function Login({ onLoginSuccess }) {
       <ThemeToggle className="login-theme-toggle" />
 
       <div className="login-shell">
-        {/* Brand side */}
         <section className="login-brand">
           <BrandGlobe size={420} className="login-brand-globe" />
           <div className="login-brand-content">
@@ -62,7 +58,6 @@ export default function Login({ onLoginSuccess }) {
           </div>
         </section>
 
-        {/* Form side */}
         <section className={`login-card${shake ? ' shake' : ''}`}>
           <div className="login-card-banner">
             <img src={logoImage} alt="" className="login-card-logo" />
@@ -75,7 +70,6 @@ export default function Login({ onLoginSuccess }) {
               <span>Email</span>
               <div className="login-input">
                 <MailOutlined />
-                {/* type="text", not "email": admin usernames are not email addresses */}
                 <input
                   type="text"
                   autoComplete="username"

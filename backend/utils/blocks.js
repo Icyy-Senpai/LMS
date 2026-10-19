@@ -7,10 +7,6 @@ const fail = (status, message) => Object.assign(new Error(message), { status });
 const studentLabel = (s) => `${s.lastName}, ${s.firstName}`;
 const teacherLabel = (t) => `Prof. ${t.lastName}, ${t.firstName}`;
 
-/**
- * Every block with its counts, subjects and the professor of each subject. The Block collection is the source of
- * truth (migrateBlocks() makes sure every Student.block has a Block document).
- */
 const listBlocks = async () => {
   const blocks = await Block.find({}).sort({ code: 1 }).lean();
   const courseIds = blocks.flatMap(b => (b.assignedSubjects || []).map(s => s.subjectId));
@@ -57,14 +53,6 @@ const refreshCounts = (codes) => Block.updateMany(
   { updatePipeline: true }
 );
 
-/**
- * Puts a student in a block (or removes them from every block when blockCode is empty). Keeps Student.block and
- * Block.studentsRegistered in step; a student is only ever registered in one block.
- *
- * autoEnroll = true:  the student is enrolled in the new block's subjects, and un-enrolled from the old block's
- *                     subjects that the new block does not have. Completed courses are never touched.
- * autoEnroll = false: only the block changes; course enrolment is left as it is.
- */
 const assignStudentToBlock = async ({ studentSchoolId, blockCode, autoEnroll = false }) => {
   const student = await Student.findOne({ schoolId: studentSchoolId });
   if (!student) throw fail(404, 'Student not found.');
@@ -81,7 +69,6 @@ const assignStudentToBlock = async ({ studentSchoolId, blockCode, autoEnroll = f
     throw fail(400, `Block ${newBlock.code} is full (${newBlock.studentsRegistered.length}/${newBlock.maxAmountOfStudents} students).`);
   }
 
-  // Leave every other block, then join the new one.
   await Block.updateMany(
     { 'studentsRegistered.schoolId': student.schoolId, ...(newBlock ? { code: { $ne: newBlock.code } } : {}) },
     { $pull: { studentsRegistered: { schoolId: student.schoolId } } }
@@ -112,7 +99,6 @@ const assignStudentToBlock = async ({ studentSchoolId, blockCode, autoEnroll = f
   return { student, oldBlock: oldCode, newBlock: student.block, enrolled, unenrolled };
 };
 
-/** Enrols (or un-enrols) every student of a block in one course. Completed courses are left alone. */
 const enrollBlockStudents = async (block, courseCode, enroll) => {
   const ids = (block.studentsRegistered || []).map(s => s.schoolId);
   if (ids.length === 0) return 0;
@@ -124,17 +110,10 @@ const enrollBlockStudents = async (block, courseCode, enroll) => {
   return res.modifiedCount;
 };
 
-/** Codes of the blocks in which `teacher` is the professor of `course`. */
 const blocksTaughtBy = async (teacher, course) => (
   await Block.find({ courseProfessors: { $elemMatch: { subjectId: course._id, teacherId: teacher._id } } }, 'code').lean()
 ).map(b => b.code);
 
-/**
- * Who may work on a course:
- *  - With a block: only the professor assigned to that course in that block (Block.courseProfessors).
- *  - Without a block (course-wide content / assignments): the course's lead instructor (Course.instructorID,
- *    assigned by a Dean) or anyone who teaches it in at least one block.
- */
 const assertTeaches = async (teacher, courseCode, blockCode) => {
   const course = await Course.findOne({ code: courseCode });
   if (!course) throw fail(404, 'Course not found.');
@@ -147,12 +126,6 @@ const assertTeaches = async (teacher, courseCode, blockCode) => {
   return { course, blocks };
 };
 
-/**
- * One-off data fixes, run at server start (safe to run every time):
- *  - replaces the old unique index on studentsRegistered.schoolId, which made a 2nd empty block impossible to create;
- *  - makes sure every block used by a student has a Block document and lists exactly the students in it;
- *  - removes the old single Teacher.block field (teachers now hold blocks through Block.courseProfessors).
- */
 const migrateBlocks = async () => {
   try {
     const indexes = await Block.collection.indexes().catch(() => []);
@@ -173,7 +146,6 @@ const migrateBlocks = async () => {
     for (const code of byBlock.keys()) {
       if (!known.has(code)) await Block.collection.insertOne({ code, name: code, assignedSubjects: [], courseProfessors: [], studentsRegistered: [], amountOfStudents: 0 });
     }
-    // Clear everyone first so the unique index never sees a student in two blocks mid-way.
     await Block.collection.updateMany({}, { $set: { studentsRegistered: [], amountOfStudents: 0 } });
     for (const [code, list] of byBlock) {
       await Block.collection.updateOne({ code }, { $set: { studentsRegistered: list, amountOfStudents: list.length } });
